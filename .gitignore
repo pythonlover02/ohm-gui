@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+py_env/
+dist/
+build/
+*.spec
+*.build/
+*.dist/
+*.onefile-build/
+
+# Rust
+target/
+
+# Build outputs
+bin/
+releases/
+bundles/
+.flatpak-work*

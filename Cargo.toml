@@ -1,0 +1,29 @@
+[package]
+name = "volt"
+version = "2.4.1"
+edition = "2021"
+rust-version = "1.85.1"
+
+[lib]
+name = "volt"
+crate-type = ["cdylib", "rlib"]
+path = "src/volt/lib.rs"
+
+[[bin]]
+name = "volt"
+path = "src/volt/volt.rs"
+
+[[bin]]
+name = "volt-probe"
+path = "src/volt-probe/volt-probe.rs"
+
+[dependencies]
+libc = "0.2"
+toml = "1.1.4"
+ash = "=0.38.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+panic = "abort"
+strip = true
