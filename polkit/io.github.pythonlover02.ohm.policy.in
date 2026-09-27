@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>ohm-gui</vendor>
+  <vendor_url>https://github.com/pythonlover02/ohm-gui</vendor_url>
+  <action id="io.github.pythonlover02.ohm.apply">
+    <description>Apply or restore kernel settings</description>
+    <message>ohm needs your password to write kernel settings</message>
+    <icon_name>ohm-gui</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@bindir@/ohm</annotate>
+  </action>
+</policyconfig>
