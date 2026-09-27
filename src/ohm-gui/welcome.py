@@ -17,97 +17,61 @@ from ui import WINDOW_MIN_WIDTH
 def get_welcome_settings() -> dict:
     return {
         "Welcome": {
-            "Welcome to volt gui": (
-                ("text", "volt-gui is my AMD Adrenaline / NVIDIA Settings Linux Alternative.\n\nSettings are applied by volt, a Vulkan implicit layer, so they work on every Vulkan driver: RADV, ANV, NVK, AMDVLK, the NVIDIA proprietary driver, and anything else that supports Vulkan 1.0."),
-                ("text", "The layer sticks to core Vulkan 1.0 and the swapchain extension, so nothing here behaves differently from one driver to the next."),
+            "Welcome to ohm gui": (
+                ("text", "ohm-gui is my Linux Kernel Settings Modifier.\n\nIt sets the CPU governor and clock range, the idle governor, huge pages, the I/O scheduler of each drive, the PCIe link power policy and TCP congestion control."),
+                ("text", "Settings are written by ohm, a small root helper started through pkexec when you press Apply. Close ohm-gui and every file goes back to what it held."),
             )
         },
         "How it Works": {
-            "The volt Layer": (
-                ("text", "Every setting in this application is written to a profile file at ~/.config/volt-gui/. The volt Vulkan layer reads that profile when a game starts and rewrites the Vulkan calls the game makes: samplers for texture filtering and mip selection, the swapchain for vsync, image count and compositing, device enumeration for GPU selection, presents for the frame limiter, and pipelines for the rendering toggles."),
-                ("text", "Settings are read once when a game starts and never change while it runs. Press Apply, then start the game again."),
+            "Apply and Restore": (
+                ("text", "Pressing Apply saves the profile and runs ohm through pkexec, which asks for your password. ohm first saves what every file it is about to write holds to /run/ohm/originals.toml, then writes the profile."),
+                ("text", "Closing ohm-gui runs ohm restore, which writes those values back and deletes the file. With the tray icon on, closing the window keeps ohm-gui running and your settings applied until you quit from the tray."),
+                ("text", "Nothing applies at boot. There is no unit, no sysctl file and no udev rule, and /run is gone at reboot along with anything ohm saved there. A machine that never runs ohm is a machine ohm has never touched."),
             ),
             "What it Will Not Do": (
-                ("text", "volt only changes what the game asks Vulkan for. It never draws anything itself, so sharpening, upscaling, frame generation, forced MSAA and overlays are all out of scope. Use MangoHud for an overlay and LACT for clocks and fan curves, or CoreCtrl if you also want CPU controls."),
-                ("text", "It also never turns anything on that the game left off. volt enables no device feature and no extension. Where a setting needs a feature, volt reads what the game asked for and applies the setting only if the game enabled it: that is how Anisotropic Filtering, Sample Shading, Alpha To One and Depth Clamp work, and where the game left the feature clear the setting is ignored and a line is logged. A setting that cannot be reached that way at all stays out, which keeps cubic filtering off the table, line width stays out because forcing it breaks games either way, and forced wireframe stays out because it is a wallhack. Where a game moves state onto an extension path, volt follows it there: a hook for an extension the game never enabled is simply unreachable."),
+                ("text", "Overclocking, undervolting, fan curves and power caps stay out. Use LACT, or CoreCtrl if you also want CPU controls. So do watchdogs, lockdown levels, suspend modes, debug knobs and the clocksource: each is either one driver's, a security boundary, or a lever whose result you cannot see."),
+                ("text", "A file only ships where the kernel describes it: a list marking the current choice, a sibling file naming the choices, or siblings naming the minimum and maximum. A file whose options only live in documentation, a bare number the kernel does not bound, and a file that acts when written are not settings."),
             )
         },
         "Settings": {
-            "One Value Per Setting": (
-                ("text", "Every setting is a single choice: the value volt forces, or default, which means volt does not touch what the game asked for. There is no range, no ordering between values, and nothing to get backwards."),
-                ("text", "A card offers values core Vulkan 1.0 and VK_KHR_swapchain define and nothing else. A value above that floor is shown in a log line, never offered and never read back from a profile."),
-                ("text", "Where the specification admits only what a query returned, a value your device did not report is not forced. volt keeps the game's own value and logs a warning, so a profile written on another machine never makes a call invalid."),
-                ("text", "Where the specification bounds a value, volt clamps the value it forces rather than the one the game supplied. A forced LOD bias is clamped to your device limit. A forced image count is clamped to what the surface allows, except on a swapchain the game created in a shared present mode, which keeps the single image the specification requires of it. That clamp is correctness rather than a choice, so it is not shown here."),
+            "One Value Per Card": (
+                ("text", "Every card is one file on one instance: the value ohm writes, or default, which means ohm does not touch the file."),
+                ("text", "Cores that share a clock share a policy, so the CPU tab has one set of cards per policy. Memory has one set for huge pages as a whole and one per page size, and Disk has one card per drive. A card for one instance names it in its title."),
             ),
             "Where the Lists Come From": (
-                ("text", "Many of the cards are filled in from your own hardware rather than from a list built into volt-gui. Present modes, image counts and alpha modes come from what the surface reports, the GPU list comes from what the driver enumerates, and anisotropy, mip levels and LOD bias run up to the limits your device gives. A card without the feature behind it holds nothing but default, and so does every device backed card until the probe has run: volt-gui offers no option it has not read."),
-                ("text", "It also means a profile written on another machine can name something this one cannot do, in which case that setting resets to default and volt-gui tells you which ones."),
-                ("text", "The rest carry fixed lists, because there is nothing to read. Nearest and linear are core Vulkan with no feature and no query behind them, so every driver has both and none of them says so. The Framerate settings have nothing to read at all: a game never tells Vulkan what frame rate it wants, so there is nothing on the device to ask."),
+                ("text", "Every list is read from your kernel when ohm-gui opens. Governors come from the cpufreq driver, schedulers from the modules this kernel has, and frequencies from what the hardware reports. Nothing is sorted, renamed or converted: kHz stays kHz."),
+                ("text", "ohm reads the same files again at the moment it writes. A value the kernel does not offer then is not written, and ohm says so."),
+                ("text", "A profile written on another machine can name a policy, a drive or a value this one lacks. That setting resets to default and ohm-gui tells you which ones."),
             ),
-            "The Three Filter Cards": (
-                ("text", "Three sampler fields, three cards. Nothing overrides anything. Linear is forced only onto a sampler whose own magnification filter, minification filter or mipmap mode is already linear, so every draw time rule the forced linear triggers is one the sampler's own linear already triggers on the same image."),
-                ("text", "In the order magnification, minification, mipmap:\n\n- retro: nearest, nearest, nearest.\n- bilinear: linear, linear, nearest.\n- trilinear: linear, linear, linear.\n- sharp pixel art without distant shimmer: nearest, linear, linear."),
-                ("text", "Magnification is what you see up close. Minification is most of the screen, and where mipmaps and anisotropic filtering do their work. Mipmap Mode is the blend between levels."),
-                ("text", "An unnormalized, subsampled, image processing or converted sampler keeps every field its own shape restricts, so a setting naming one of those fields leaves it alone and logs a line."),
+            "Minimum and Maximum Frequency": (
+                ("text", "The two never cross on the way. When both rise the maximum goes first, when both fall the minimum goes first. A minimum above the maximum, or a maximum below the minimum, is dropped with a line in the report."),
+                ("text", "The slider runs in 1000 kHz steps between the hardware's floor and ceiling, and both of those are always stops. The kernel snaps a written value to one it supports, and the report shows what landed."),
             ),
-            "The Frame Limiter": (
-                ("text", "Frame Limit caps the rate at present time. Cadence sets which rate the limiter aims at, Method sets when it waits, Pacing sets how, and none of the three does anything until Limit is set."),
-                ("text", "Cadence is the rate the limiter aims at. fixed is your cap and nothing else. smooth paces at the slowest of the last few frames, so the fast frames wait for the slow ones and the cadence comes out even at whatever the machine is holding. dynamic reads exactly what smooth reads and then rounds it down to a quarter step of your cap, so it sits on a set rate rather than following the load. The steps are quarter steps of your cap's frame time, so they sit close together low down and far apart up top: a 60 cap steps 60, 48, 40, 34, 30, while a 240 cap steps 240, 192, 160, 137, 120. Both come from how consoles handle a machine that cannot hold its target, which is picking a rate it can hold and staying there. A console drops resolution to get there and volt cannot touch resolution, so frame handling is the one place the idea fits. A limiter can only make frames later, which is why neither reads the average: a frame slower than the average could never be paced up to it. Both climb back on their own, and neither goes faster than your cap. The trade is frames for evenness: fixed does nothing at all once the machine falls under the cap, so what you get is whatever the machine produced, one frame long and the next short. smooth and dynamic hold the short frames back to match the long ones, which costs you the frames you would have seen and buys you even spacing. dynamic changing step is visible, but it is one change rather than a different frame time every frame. Set fixed if the machine holds the cap, or if you want every frame you can get for the input latency."),
-                ("text", "Cadence and Method are separate cards because they answer different questions, and any pair of them works together. dynamic with late holds a set rate and still reads input as close to display time as it can."),
-                ("text", "sleep hands the whole wait to the kernel and costs nothing. sliced sleeps in short steps and rechecks the clock, which corrects for the kernel waking late. precise sleeps most of the interval then busy waits half a millisecond. spin busy waits the whole interval, the steadiest of the four and the only one that keeps a core awake."),
-            ),
-            "Every Setting Forces, Bar One": (
-                ("text", "volt writes the value you picked into its own copy of the structure that carries it, so a setting lands whether or not the game consulted a query first. That holds for every card here except one."),
-                ("text", "Physical Device is the exception, and it is a fact about Vulkan rather than a choice. Nothing names the device a swapchain runs on: the game already holds a physical device by the time volt sees anything it could patch. Hiding the others from enumeration is the only lever there is, so a game that ignores enumeration order keeps the device it picked."),
-                ("text", "Where a query governs what is legal, volt filters that too. A present mode must be one the surface reported, so filtering the query means a game picking the first entry it is offered gets the right value without volt overriding anything, and a game that hardcodes gets it at the create call instead. Both halves, one setting."),
-                ("text", "A forced value the device did not report is not forced. Where the surface turns down the present mode or the composite alpha you named, volt keeps the game's own value and logs a warning. It never passes down a value that would make the call invalid."),
-            )
         },
         "Usage": {
-            "Launching Games": (
-                ("text", "Prepend the volt launcher to your game command. It activates the layer for that process only and selects the profile:"),
-                ("code", "volt -- %command%", "Steam (Launch Options, default profile):"),
-                ("code", "volt myprofile -- %command%", "Steam (named profile):"),
-                ("code", "volt -- ./game", "Terminal:"),
-                ("code", "volt -- flatpak run com.example.Game", "Flatpak:"),
-            ),
-            "Default Behavior": (
-                ("text", "Every setting defaults to \"default\", which means the layer does not touch that value and the application keeps its own choice. A profile with everything on default is a true passthrough."),
-            ),
-            "Seeing What Applied": (
-                ("text", "Run the game from a terminal with VOLT_LOG=info and the layer prints what it applied and what the surface or the device turned down."),
-                ("code", "VOLT_LOG=info volt -- ./game", ""),
-                ("text", "Every setting gets a line: either the value the game asked for and the value volt wrote in its place, or the reason the setting did not land. The applied value is the one volt wrote, so a setting the device clamped shows what landed rather than what you picked."),
-                ("text", "A setting that needs a device feature the game left clear names that feature instead. The Framerate settings have no asked value, since a game never tells Vulkan what frame rate it wants, so they report what volt applied or say the profile did not set them."),
-                ("text", "The GPU line reads `asked N, applied M` when you set a gpu: N is the device the game used, M the one your profile picked. With no gpu in the profile it reads `asked N` alone."),
-                ("text", "Each distinct asked and applied pair prints once per device however many samplers, pipelines or swapchains the game creates, and a reason line prints each time a value is kept."),
+            "The Report": (
+                ("text", "After Apply, the notice lists every file ohm wrote as was A, applied B, both read from the kernel. A setting that did not land says why instead. The report never repeats text from the profile."),
             ),
             "The Probe": (
-                ("text", "volt-gui runs volt-probe under the profile you are editing. It is what fills the setting lists with your hardware. Pressing Apply runs it again so those lists match the values you just saved, and switching profiles runs it again too."),
-                ("text", "For each backend it can reach it opens a one pixel window that is never mapped and creates a surface and a swapchain, so the layer sees every path it needs. It creates one sampler, records what the device reported, and exits. Nothing appears on screen and nothing is drawn."),
-                ("text", "It opens X11 and Wayland, each through a client library loaded at runtime. A machine missing one reports the other, a machine missing both still fills every device backed card, and those three cards hold nothing but default. The file carries one section per backend that opened, so a third backend later is a section and nothing else."),
-                ("text", "Present modes, image counts and alpha modes are answered against a surface rather than against the card, so your display path bounds them as much as your hardware does, and a short list there is the answer rather than a failure. Those three cards are also the only ones this touches. The card offers the union of what the backends reported, with every value naming the backends that reported it: mailbox (xcb, wayland), immediate (xcb). The profile stores the value, never the tag. Where a backend's answer does not match the game's surface, the layer already handles it: image count is clamped against the surface the game actually opened, and a present mode or alpha mode that surface turns down leaves the game's own value alone with a line in the log."),
-                ("text", "volt-probe is built by make and installed next to volt and volt-gui, so there is nothing extra to fetch. It loads libxcb and libwayland-client at runtime and needs neither."),
-                ("code", "volt --probe myprofile -- volt-probe", "Run it yourself:"),
-            )
+                ("text", "ohm-probe runs as you when ohm-gui opens and never writes a kernel file. It lists each root's directory one level deep, reads only the files a root names, and writes ~/.config/ohm-gui/probe.toml. Every card is built from that file."),
+                ("text", "A file that is not there is a card holding only default. So is a file whose list or bounds are missing."),
+            ),
         },
         "Profiles": {
             "Profiles": (
-                ("text", "Create profiles to switch between configurations per game.\n\n1. Press New in the bottom bar.\n2. Configure and Apply settings.\n3. Launch the game with that profile name, or switch profiles from the System Tray."),
-                ("text", "The launch command shown at the top of the window always matches the selected profile and can be copied directly into Steam."),
+                ("text", "Create profiles to switch between configurations.\n\n1. Press New in the bottom bar.\n2. Configure and Apply settings.\n3. Switch profiles from the bottom bar or the System Tray."),
             )
         },
         "Presets": {
             "Presets": (
-                ("text", "Presets fill the profile you have open with a starting point, arranged as a ladder from best looking to fastest:\n\n- Quality: trilinear filtering, a slight sharpening bias, every mip level allowed, 16x anisotropy, classic vsync, a 4 image swapchain, and precise pacing on an early wait.\n- Balanced: trilinear still, mailbox present for vsync without the latency, 8x anisotropy, sliced pacing.\n- Performance FPS: bilinear, a blurring bias, mailbox present, the swapchain held to 4 images and the cheaper sleep pacing.\n- Performance Low Latency: the same, aimed at input lag instead, with immediate present, a 2 image swapchain, a late wait and spin pacing, the steadiest of the four.\n- Potato FPS: bilinear, anisotropy off, a full step of blurring bias, the top two mips off the table, cutout smoothing off.\n- Potato Low Latency: the same again with immediate present, a 2 image swapchain and a late wait.\n\nNo preset sets Composite Alpha or Clipped Presentation: those depend on your compositor, so they go back to default and the choice stays yours."),
-                ("text", "Applying a preset replaces every value in the profile after a confirmation, so anything the preset does not set goes back to default. That includes the frame limit: the right cap depends on your display, so that choice stays yours."),
-                ("text", "A preset can name something your hardware does not offer, mailbox on a surface without it for instance. That setting resets to default and volt-gui says which ones, so the rest of the preset still lands."),
-                ("text", "The filter presets are also the answer to what the three filter cards should be set to. Quality and Balanced are trilinear, the rest are bilinear with hard mip cuts, and every one of them is spelled out card by card in The Three Filter Cards above."),
+                ("text", "Presets fill the profile you have open with a starting point, arranged as a ladder from least power to most throughput:\n\n- Power Saving: every policy on powersave.\n- Balanced: every policy on schedutil, huge pages where a program asks for them, compaction only where asked.\n- Performance: every policy on performance, huge pages where a program asks for them, and background compaction for everything else.\n- Performance Throughput: the same, with huge pages everywhere and every compaction in the background, trading memory for fewer address lookups.\n\nNo preset touches the clock range, the idle governor or the I/O scheduler: those depend on your hardware, so they go back to default and the choice stays yours."),
+                ("text", "Applying a preset replaces every value in the profile after a confirmation, so anything the preset does not set goes back to default."),
+                ("text", "A preset can name a value your kernel does not offer, schedutil under intel_pstate in active mode for instance. That setting resets to default and ohm-gui says which ones, so the rest of the preset still lands."),
             )
         },
         "Options": {
             "Options": (
-                ("text", "Changes to Options are saved automatically but only take effect after restarting volt-gui. This includes the theme, scaling, tray behavior, and all other preferences."),
+                ("text", "Changes to Options are saved automatically but only take effect after restarting ohm-gui. This includes the theme, scaling, tray behavior, and all other preferences."),
             )
         },
     }
@@ -115,7 +79,7 @@ def get_welcome_settings() -> dict:
 
 def create_welcome_window_widget() -> QMainWindow:
     window = QMainWindow()
-    window.setWindowTitle("volt-gui Welcome")
+    window.setWindowTitle("ohm-gui Welcome")
     window.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
     central_widget = QWidget()
     main_layout = QVBoxLayout(central_widget)

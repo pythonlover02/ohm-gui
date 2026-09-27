@@ -5,15 +5,14 @@ from functools import reduce
 from pathlib import Path
 from typing import Any
 from typing import Final
-from typing import Optional
 
 from database import DEFAULT_PROFILE
 from database import DEFAULT_VALUE
-from database import call_option_sources
-from database import find_profile_fields
+from database import WIDGET_SEP
+from database import build_widget_key
 from probe import PROBE_FILE
 
-SECTION_ORDER: Final[tuple] = ("gpu", "display", "textures", "rendering", "framerate")
+CONFIG_DIR: Final[str] = "~/.config/ohm-gui"
 OPTIONS_FILE: Final[str] = "options.toml"
 PROFILE_SUFFIX: Final[str] = ".toml"
 PAIR_SEP: Final[str] = " = "
@@ -24,7 +23,7 @@ RESERVED_STEMS: Final[tuple] = (
 
 
 def build_config_dir() -> Path:
-    return Path(os.path.expanduser("~/.config/volt-gui"))
+    return Path(os.path.expanduser(CONFIG_DIR))
 
 
 def build_profile_path(profile_name: str) -> Path:
@@ -56,27 +55,26 @@ def _quoted(value: str) -> str:
     return '"' + value + '"'
 
 
-def _section_lines(section: str, pairs: tuple) -> tuple:
+def _section_of(widget_key: str) -> str:
+    return widget_key.partition(WIDGET_SEP)[0]
+
+
+def _key_of(widget_key: str) -> str:
+    return widget_key.partition(WIDGET_SEP)[2]
+
+
+def _section_lines(values: dict, section: str) -> tuple:
     return ("[" + section + "]",) + tuple(
-        key + PAIR_SEP + _quoted(value) for key, value in pairs) + ("",)
-
-
-def _in_section(section: str, field: tuple) -> bool:
-    return field[1] == section
-
-
-def _pairs_for_section(values: dict, section: str) -> tuple:
-    kept = filter(partial(_in_section, section), find_profile_fields())
-    return tuple(
-        (config_key, values.get(widget_key, DEFAULT_VALUE))
-        for widget_key, _, config_key in kept)
+        _key_of(widget_key) + PAIR_SEP + _quoted(value)
+        for widget_key, value in values.items()
+        if _section_of(widget_key) == section) + ("",)
 
 
 def serialize_profile(values: dict) -> str:
     return "\n".join(
         line
-        for section in SECTION_ORDER
-        for line in _section_lines(section, _pairs_for_section(values, section)))
+        for section in dict.fromkeys(map(_section_of, values))
+        for line in _section_lines(values, section))
 
 
 def _classify_line(line: str) -> tuple:
@@ -96,22 +94,13 @@ def _fold_line(state: tuple, line: str) -> tuple:
         case ("section", name):
             return (name, state[1])
         case ("pair", key, value):
-            return (state[0], state[1] + ((state[0] + "." + key, value),))
+            return (state[0], state[1] + ((build_widget_key(state[0], key), value),))
         case _:
             return state
 
 
 def parse_profile_text(text: str) -> dict:
     return dict(reduce(_fold_line, text.splitlines(), ("", ()))[1])
-
-
-def _named(section_key: str, field: tuple) -> bool:
-    return field[1] + "." + field[2] == section_key
-
-
-def _widget_key_for(section_key: str) -> Optional[str]:
-    named = filter(partial(_named, section_key), find_profile_fields())
-    return next((widget_key for widget_key, _, _ in named), None)
 
 
 def widget_value(widget: Any) -> str:
@@ -132,54 +121,22 @@ def process_widget_value_update(widget: Any, display_value: str) -> bool:
             return True
 
 
-def process_widget_options_rebuild(widget: Any, options: tuple) -> None:
-    keep = widget_value(widget)
-    widget.clear()
-    for value, label in options:
-        widget.addItem(label, value)
-    process_widget_value_update(widget, keep)
-    return None
-
-
 def process_profile_widgets_block_signals(widget_collection: dict, should_block: bool) -> None:
-    for widget_key, _, _ in find_profile_fields():
-        match widget_collection.get(widget_key):
-            case None:
-                continue
-            case widget:
-                widget.blockSignals(should_block)
+    for widget in widget_collection.values():
+        widget.blockSignals(should_block)
     return None
 
 
 def process_profile_widgets_reset(widget_collection: dict) -> None:
-    for widget_key, _, _ in find_profile_fields():
-        match widget_collection.get(widget_key):
-            case None:
-                continue
-            case widget:
-                widget.setCurrentIndex(0)
+    for widget in widget_collection.values():
+        widget.setCurrentIndex(0)
     return None
-
-
-def process_profile_options_rebuild(widget_collection: dict) -> None:
-    for widget_key, options in call_option_sources():
-        match widget_collection.get(widget_key):
-            case None:
-                continue
-            case widget:
-                process_widget_options_rebuild(widget, options)
-    return None
-
-
-def _widget_held(widget_collection: dict, field: tuple) -> bool:
-    return widget_collection.get(field[0]) is not None
 
 
 def collect_widget_values(widget_collection: dict) -> dict:
     return {
-        widget_key: widget_value(widget_collection[widget_key])
-        for widget_key, _, _ in filter(
-            partial(_widget_held, widget_collection), find_profile_fields())}
+        widget_key: widget_value(widget)
+        for widget_key, widget in widget_collection.items()}
 
 
 def call_read_profile(profile_name: str) -> dict:
@@ -190,41 +147,24 @@ def call_read_profile(profile_name: str) -> dict:
             return parse_profile_text(build_profile_path(profile_name).read_text(encoding="utf-8"))
 
 
-def _process_widget_value(widget_collection: dict, widget_key: str, value: str) -> bool:
-    match widget_collection.get(widget_key):
-        case None:
+def _dropped(widget_collection: dict, item: tuple) -> bool:
+    widget_key, value = item
+    match (value == DEFAULT_VALUE, widget_collection.get(widget_key)):
+        case (True, _):
+            return False
+        case (False, None):
             return True
-        case widget:
-            return process_widget_value_update(widget, value)
-
-
-def _process_parsed_value(widget_collection: dict, section_key: str, value: str) -> bool:
-    match _widget_key_for(section_key):
-        case None:
-            return True
-        case widget_key:
-            return _process_widget_value(widget_collection, widget_key, value)
-
-
-def _kept(value: str) -> bool:
-    return value == DEFAULT_VALUE
-
-
-def _applied(widget_collection: dict, item: tuple) -> bool:
-    section_key, value = item
-    return not _kept(value) and not _process_parsed_value(widget_collection, section_key, value)
-
-
-def _apply_parsed(widget_collection: dict, parsed: dict) -> tuple:
-    return tuple(
-        section_key
-        for section_key, _ in filter(partial(_applied, widget_collection), parsed.items()))
+        case (False, widget):
+            return not process_widget_value_update(widget, value)
 
 
 def process_profile_widget_load(widget_collection: dict, profile_name: str) -> tuple:
     process_profile_widgets_block_signals(widget_collection, True)
     process_profile_widgets_reset(widget_collection)
-    dropped = _apply_parsed(widget_collection, call_read_profile(profile_name))
+    dropped = tuple(
+        widget_key
+        for widget_key, _ in filter(
+            partial(_dropped, widget_collection), call_read_profile(profile_name).items()))
     process_profile_widgets_block_signals(widget_collection, False)
     return dropped
 

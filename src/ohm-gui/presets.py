@@ -3,7 +3,7 @@ from typing import Any
 from typing import Final
 
 from database import DEFAULT_VALUE
-from database import find_profile_fields
+from database import find_setting_id
 from profiles import process_profile_widgets_block_signals
 from profiles import process_profile_widgets_reset
 from profiles import process_widget_value_update
@@ -12,75 +12,23 @@ PRESET_PLACEHOLDER: Final[str] = "Presets"
 
 PRESET_OVERRIDES: Final[dict] = {
     "Default": {},
-    "Quality": {
-        "Display:present_mode": "fifo",
-        "Display:image_count": "4",
-        "Framerate:frame_limit_method": "early",
-        "Framerate:frame_pacing": "precise",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "linear",
-        "Textures:anisotropy": "16",
-        "Textures:lod_bias": "-0.6",
-        "Textures:mip_floor": "0",
+    "Power Saving": {
+        "CPU:scaling_governor": "powersave",
     },
     "Balanced": {
-        "Display:present_mode": "mailbox",
-        "Framerate:frame_limit_method": "early",
-        "Framerate:frame_pacing": "sliced",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "linear",
-        "Textures:anisotropy": "8",
-        "Textures:mip_floor": "0",
+        "CPU:scaling_governor": "schedutil",
+        "Memory:enabled": "madvise",
+        "Memory:defrag": "madvise",
     },
-    "Performance FPS": {
-        "Display:present_mode": "mailbox",
-        "Display:image_count": "4",
-        "Framerate:frame_limit_method": "early",
-        "Framerate:frame_pacing": "sleep",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "nearest",
-        "Textures:anisotropy": "4",
-        "Textures:lod_bias": "0.6",
+    "Performance": {
+        "CPU:scaling_governor": "performance",
+        "Memory:enabled": "madvise",
+        "Memory:defrag": "defer+madvise",
     },
-    "Performance Low Latency": {
-        "Display:present_mode": "immediate",
-        "Display:image_count": "2",
-        "Framerate:frame_limit_method": "late",
-        "Framerate:frame_pacing": "spin",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "nearest",
-        "Textures:anisotropy": "4",
-        "Textures:lod_bias": "0.6",
-    },
-    "Potato FPS": {
-        "Display:present_mode": "mailbox",
-        "Display:image_count": "4",
-        "Framerate:frame_limit_method": "early",
-        "Framerate:frame_pacing": "sleep",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "nearest",
-        "Textures:anisotropy": "off",
-        "Textures:lod_bias": "1.0",
-        "Textures:mip_floor": "2",
-        "Rendering:alpha_to_coverage": "off",
-    },
-    "Potato Low Latency": {
-        "Display:present_mode": "immediate",
-        "Display:image_count": "2",
-        "Framerate:frame_limit_method": "late",
-        "Framerate:frame_pacing": "sleep",
-        "Textures:mag_filter": "linear",
-        "Textures:min_filter": "linear",
-        "Textures:mipmap_mode": "nearest",
-        "Textures:anisotropy": "off",
-        "Textures:lod_bias": "1.0",
-        "Textures:mip_floor": "2",
-        "Rendering:alpha_to_coverage": "off",
+    "Performance Throughput": {
+        "CPU:scaling_governor": "performance",
+        "Memory:enabled": "always",
+        "Memory:defrag": "defer",
     },
 }
 
@@ -97,10 +45,10 @@ def is_valid_preset_name(preset_name: str) -> bool:
     return preset_name in PRESET_OVERRIDES
 
 
-def build_preset_values(preset_name: str) -> dict:
+def build_preset_values(preset_name: str, widget_keys: tuple) -> dict:
     return {
-        **{widget_key: DEFAULT_VALUE for widget_key, _, _ in find_profile_fields()},
-        **PRESET_OVERRIDES.get(preset_name, {})}
+        widget_key: PRESET_OVERRIDES.get(preset_name, {}).get(find_setting_id(widget_key), DEFAULT_VALUE)
+        for widget_key in widget_keys}
 
 
 def process_preset_combo_items(combo_widget: Any) -> None:
@@ -115,11 +63,11 @@ def process_preset_combo_items(combo_widget: Any) -> None:
 
 def _widget_dropped(widget_collection: dict, item: tuple) -> bool:
     widget_key, setting_value = item
-    match widget_collection.get(widget_key):
-        case None:
+    match setting_value == DEFAULT_VALUE:
+        case True:
             return False
-        case widget:
-            return not process_widget_value_update(widget, setting_value)
+        case False:
+            return not process_widget_value_update(widget_collection[widget_key], setting_value)
 
 
 def _preset_dropped(widget_collection: dict, values: dict) -> tuple:
@@ -134,6 +82,7 @@ def process_preset_apply(widget_collection: dict, preset_name: str) -> tuple:
         case True:
             process_profile_widgets_block_signals(widget_collection, True)
             process_profile_widgets_reset(widget_collection)
-            dropped = _preset_dropped(widget_collection, build_preset_values(preset_name))
+            dropped = _preset_dropped(
+                widget_collection, build_preset_values(preset_name, tuple(widget_collection)))
             process_profile_widgets_block_signals(widget_collection, False)
             return dropped

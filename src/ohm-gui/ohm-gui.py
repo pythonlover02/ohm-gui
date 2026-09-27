@@ -1,14 +1,15 @@
 import configparser
 import os
+import shutil
 import signal
 import socket
+import subprocess
 import sys
 
 from functools import partial
 from typing import Final
 from typing import Optional
 
-from PySide6.QtCore import QProcess
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction
@@ -31,10 +32,11 @@ from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtWidgets import QWidget
 
 from database import ALL_TABS
-from database import APP_VERSION
 from database import DEFAULT_PROFILE
 from database import DEFAULT_VALUE
 from database import OPTIONS_DB
+from database import SECTION_SEP
+from database import WIDGET_SEP
 from database import get_about_data
 from database import get_option_default_value
 from database import get_option_description
@@ -45,24 +47,20 @@ from presets import process_preset_combo_items
 from presets import get_preset_placeholder_label
 from presets import is_valid_preset_name
 from presets import process_preset_apply
-from probe import call_probe_stamp
 from profiles import build_config_dir
 from profiles import build_options_path
 from profiles import call_all_profiles
 from profiles import is_reserved_profile_name
 from profiles import process_profile_delete
-from profiles import process_profile_options_rebuild
 from profiles import process_profile_save
 from profiles import process_profile_widget_load
 from themes import STANDARD_BUTTON_HEIGHT
 from themes import STANDARD_BUTTON_WIDTH
 from themes import process_theme_application
-from ui import create_code_block_widget
 from ui import create_slider_widget
 from ui import create_scrollable_content_area
 from ui import create_tab_content_widget
 from ui import create_sidebar_container_widget
-from ui import HEADER_VERTICAL_MARGIN
 from ui import STYLE_DESCRIPTION
 from ui import WINDOW_MIN_HEIGHT
 from ui import WINDOW_MIN_WIDTH
@@ -81,29 +79,34 @@ SCALE_MAX: Final[float] = 2.0
 DEFAULT_SCALE: Final[str] = "1.0"
 GRAPHIC_FIRST: Final[int] = 33
 GRAPHIC_LAST: Final[int] = 126
-PROBE_EXIT_OK: Final[int] = 0
-PROBE_EXIT_UNSUPPORTED: Final[int] = 2
 WINDOW_OPACITY: Final[float] = 0.95
 WINDOW_OPAQUE: Final[float] = 1.0
 WELCOME_DELAY_MS: Final[int] = 100
 SHOW_DELAY_MS: Final[int] = 0
-TRAY_ICON_NAME: Final[str] = "volt-gui"
-NOTIFICATION_TITLE: Final[str] = "volt-gui"
-PREVIEW_BIN: Final[str] = "volt"
-PREVIEW_TARGET: Final[str] = "volt-probe"
-PREVIEW_POLL_MS: Final[int] = 750
-PREVIEW_START_MS: Final[int] = 300
-PREVIEW_STOP_MS: Final[int] = 1500
+NOTICE_DELAY_MS: Final[int] = 200
+TRAY_ICON_NAME: Final[str] = "ohm-gui"
+NOTIFICATION_TITLE: Final[str] = "ohm-gui"
+PROBE_BIN: Final[str] = "ohm-probe"
+ROOT_BIN: Final[str] = "ohm"
+PKEXEC_BIN: Final[str] = "pkexec"
+RESTORE_WORD: Final[str] = "restore"
+ORIGINALS_PATH: Final[str] = "/run/ohm/originals.toml"
+REPORT_PREFIX: Final[str] = "[ohm] "
+PROBE_EXIT_OK: Final[int] = 0
+ROOT_EXIT_OK: Final[int] = 0
+PKEXEC_DISMISSED: Final[int] = 126
+PKEXEC_REFUSED: Final[int] = 127
+ROOT_MISSING: Final[int] = -1
 BUNDLE_ATTR: Final[str] = "_MEIPASS"
 LIB_PATH_VAR: Final[str] = "LD_LIBRARY_PATH"
 LIB_PATH_ORIG: Final[str] = "LD_LIBRARY_PATH_ORIG"
 PRELOAD_VAR: Final[str] = "LD_PRELOAD"
 PATH_VAR: Final[str] = "PATH"
-PROBE_FAILED_ERROR: Final[str] = "volt-probe failed to run.\n\nWithout it volt-gui cannot read your hardware, so every setting fed by the device holds nothing but default.\n\nvolt-probe installs next to volt and volt-gui. Check that their directory is on your PATH, then restart volt-gui."
-
-
-def build_preview_args(profile_name: str) -> list:
-    return ["--probe", profile_name, "--", PREVIEW_TARGET]
+PROBE_FAILED_ERROR: Final[str] = "ohm-probe failed to run.\n\nWithout it ohm-gui cannot read your kernel, so every card holds nothing but default.\n\nohm-probe installs next to ohm and ohm-gui. Check that their directory is on your PATH, then restart ohm-gui."
+ROOT_MISSING_ERROR: Final[str] = "pkexec or ohm is not on your PATH, so nothing was written.\n\nohm installs next to ohm-gui, and pkexec comes with polkit."
+APPLY_CANCELLED: Final[str] = "The password prompt was dismissed, nothing was written."
+APPLY_REFUSED: Final[str] = "polkit refused to run ohm, nothing was written."
+APPLY_FAILED: Final[str] = "ohm stopped before writing anything."
 
 
 def build_profile_label(profile_name: str) -> str:
@@ -120,14 +123,6 @@ def resolve_profile_label(label: str) -> str:
             return DEFAULT_PROFILE
         case False:
             return label
-
-
-def build_launch_command(profile_name: str) -> str:
-    match profile_name == DEFAULT_PROFILE:
-        case True:
-            return "volt -- %command%"
-        case False:
-            return "volt " + profile_name + " -- %command%"
 
 
 def call_persisted_option_value(option_key: str) -> str:
@@ -300,11 +295,6 @@ def process_profile_selector_restore(main_window: QMainWindow) -> None:
     return None
 
 
-def process_launch_line_update(main_window: QMainWindow) -> None:
-    main_window.launch_block.code_editor.setPlainText(build_launch_command(main_window.current_profile))
-    return None
-
-
 def process_profile_change(main_window: QMainWindow, profile_name: str) -> None:
     match getattr(main_window, "initial_setup_complete", False):
         case False:
@@ -315,9 +305,7 @@ def process_profile_change(main_window: QMainWindow, profile_name: str) -> None:
             process_dropped_notice(
                 main_window,
                 process_profile_widget_load(main_window.all_widgets, profile_name))
-            process_launch_line_update(main_window)
             process_tray_menu_update(main_window)
-            process_preview_start(main_window)
             return None
 
 
@@ -363,7 +351,6 @@ def process_new_profile_save(main_window: QMainWindow) -> None:
             process_profile_save(main_window.all_widgets, profile_name.strip())
             process_profile_list_update(main_window)
             process_profile_selector_restore(main_window)
-            process_launch_line_update(main_window)
             process_tray_menu_update(main_window)
             process_notification_display(main_window, "Profile '" + profile_name.strip() + "' created.")
             return None
@@ -391,7 +378,6 @@ def process_current_profile_delete(main_window: QMainWindow) -> None:
                     process_dropped_notice(
                         main_window,
                         process_profile_widget_load(main_window.all_widgets, DEFAULT_PROFILE))
-                    process_launch_line_update(main_window)
                     process_tray_menu_update(main_window)
                     process_notification_display(main_window, "Profile deleted.")
                     return None
@@ -483,19 +469,23 @@ def process_profile_apply_from_tray(main_window: QMainWindow, profile_name: str)
             process_dropped_notice(
                 main_window,
                 process_profile_widget_load(main_window.all_widgets, profile_name))
-            process_launch_line_update(main_window)
         case False:
             pass
     process_all_settings_apply(main_window)
     return None
 
 
-def process_notification_display(main_window: QMainWindow, notification_message: str) -> None:
+def process_notification_display(main_window: QMainWindow, notification_message: str, details: str = "") -> None:
     dialog = QMessageBox(main_window)
     dialog.setWindowTitle(NOTIFICATION_TITLE)
     dialog.setText(notification_message)
     dialog.setIcon(QMessageBox.NoIcon)
     dialog.setStandardButtons(QMessageBox.Ok)
+    match details == "":
+        case True:
+            pass
+        case False:
+            dialog.setDetailedText(details)
     dialog.exec()
     return None
 
@@ -602,56 +592,40 @@ def process_application_options_load(main_window: QMainWindow) -> None:
     return None
 
 
-def process_preview_stop(main_window: QMainWindow) -> None:
-    match getattr(main_window, "preview_process", None):
+def call_run_probe() -> bool:
+    match shutil.which(PROBE_BIN):
         case None:
-            return None
-        case worker:
-            worker.kill()
-            worker.waitForFinished(PREVIEW_STOP_MS)
-            main_window.preview_process = None
-            return None
+            return False
+        case path:
+            return subprocess.run([path], capture_output=True).returncode == PROBE_EXIT_OK
 
 
-def process_probe_failure(main_window: QMainWindow) -> None:
-    match main_window.probe_error_shown:
-        case True:
-            return None
-        case False:
-            main_window.probe_error_shown = True
-            process_notification_display(main_window, PROBE_FAILED_ERROR)
-            return None
+def call_root_run(argument: str) -> tuple:
+    match (shutil.which(PKEXEC_BIN), shutil.which(ROOT_BIN)):
+        case (None, _) | (_, None):
+            return (ROOT_MISSING, "")
+        case (pkexec, root):
+            result = subprocess.run([pkexec, root, argument], capture_output=True, text=True)
+            return (result.returncode, result.stdout)
 
 
-def process_preview_error(main_window: QMainWindow, process_error: QProcess.ProcessError) -> None:
-    match process_error == QProcess.ProcessError.FailedToStart:
-        case True:
-            process_probe_failure(main_window)
-            return None
-        case False:
-            return None
+def build_report_text(output: str) -> str:
+    return "\n".join(
+        line.removeprefix(REPORT_PREFIX) for line in output.splitlines() if line.strip() != "")
 
 
-def process_preview_exit(main_window: QMainWindow, exit_code: int, exit_status: QProcess.ExitStatus) -> None:
-    match (exit_status == QProcess.ExitStatus.NormalExit, exit_code):
-        case (True, code) if code in (PROBE_EXIT_OK, PROBE_EXIT_UNSUPPORTED):
-            return None
-        case (True, _):
-            process_probe_failure(main_window)
-            return None
-        case _:
-            return None
-
-
-def process_preview_start(main_window: QMainWindow) -> None:
-    process_preview_stop(main_window)
-    worker = QProcess(main_window)
-    worker.errorOccurred.connect(
-        lambda process_error: process_preview_error(main_window, process_error))
-    worker.finished.connect(
-        lambda exit_code, exit_status: process_preview_exit(main_window, exit_code, exit_status))
-    worker.start(PREVIEW_BIN, build_preview_args(main_window.current_profile))
-    main_window.preview_process = worker
+def process_root_notice(main_window: QMainWindow, result: tuple, done_text: str) -> None:
+    match result:
+        case (code, _) if code == ROOT_MISSING:
+            process_notification_display(main_window, ROOT_MISSING_ERROR)
+        case (code, _) if code == PKEXEC_DISMISSED:
+            process_notification_display(main_window, APPLY_CANCELLED)
+        case (code, _) if code == PKEXEC_REFUSED:
+            process_notification_display(main_window, APPLY_REFUSED)
+        case (code, output) if code == ROOT_EXIT_OK:
+            process_notification_display(main_window, done_text, build_report_text(output))
+        case (_, output):
+            process_notification_display(main_window, APPLY_FAILED, build_report_text(output))
     return None
 
 
@@ -662,39 +636,28 @@ def process_dropped_notice(main_window: QMainWindow, dropped: tuple) -> None:
         case _:
             process_notification_display(
                 main_window,
-                "This device cannot provide "
-                + ", ".join(key.split(":")[-1].split(".")[-1] for key in dropped)
+                "This machine cannot provide "
+                + ", ".join(key.replace(WIDGET_SEP, SECTION_SEP) for key in dropped)
                 + ", reset to default.")
-            return None
-
-
-def process_probe_rebuild(main_window: QMainWindow) -> None:
-    process_profile_options_rebuild(main_window.all_widgets)
-    process_dropped_notice(
-        main_window,
-        process_profile_widget_load(main_window.all_widgets, main_window.current_profile))
-    return None
-
-
-def process_probe_poll(main_window: QMainWindow) -> None:
-    match (call_probe_stamp(), main_window.probe_stamp, main_window.probe_settled):
-        case (stamp, seen, _) if stamp != seen:
-            main_window.probe_stamp = stamp
-            main_window.probe_settled = False
-            return None
-        case (_, _, False):
-            main_window.probe_settled = True
-            process_probe_rebuild(main_window)
-            return None
-        case _:
             return None
 
 
 def process_all_settings_apply(main_window: QMainWindow) -> None:
     process_application_options_save(main_window)
     process_profile_save(main_window.all_widgets, main_window.current_profile)
-    process_preview_start(main_window)
-    process_notification_display(main_window, "Profile '" + main_window.current_profile + "' saved. Start a game again to pick it up.")
+    process_root_notice(
+        main_window,
+        call_root_run(main_window.current_profile),
+        "Profile '" + main_window.current_profile + "' applied.")
+    return None
+
+
+def process_originals_restore() -> None:
+    match os.path.exists(ORIGINALS_PATH):
+        case True:
+            call_root_run(RESTORE_WORD)
+        case False:
+            pass
     return None
 
 
@@ -717,9 +680,9 @@ def process_cleanup(main_window: QMainWindow, singleton_socket: Optional[socket.
             pass
         case timer:
             timer.stop()
-    process_preview_stop(main_window)
     process_profile_save(main_window.all_widgets, main_window.current_profile)
     process_application_options_save(main_window)
+    process_originals_restore()
     match singleton_socket is None:
         case False:
             singleton_socket.close()
@@ -752,10 +715,9 @@ def process_welcome_show(main_window: QMainWindow) -> None:
     return None
 
 
-
 def call_claim_singleton(singleton_port: int) -> dict:
     lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    lock_name = "\0volt-gui-singleton-" + str(singleton_port)
+    lock_name = "\0ohm-gui-singleton-" + str(singleton_port)
     match lock_socket.connect_ex(lock_name) != 0:
         case True:
             lock_socket.close()
@@ -795,7 +757,7 @@ def process_create_tab(stacked_widget: QStackedWidget, all_widgets: dict, option
     return None
 
 
-def create_main_window_widget(singleton_socket: Optional[socket.socket]) -> QMainWindow:
+def create_main_window_widget(singleton_socket: Optional[socket.socket], probe_ok: bool) -> QMainWindow:
     window = QMainWindow()
     window.singleton_socket = singleton_socket
     window.start_maximized = False
@@ -804,11 +766,7 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket]) -> QMai
     window.use_system_tray = False
     window.current_profile = DEFAULT_PROFILE
     window.welcome_window = None
-    window.preview_process = None
-    window.probe_error_shown = False
-    window.probe_stamp = call_probe_stamp()
-    window.probe_settled = True
-    window.setWindowTitle("volt-gui")
+    window.setWindowTitle("ohm-gui")
     window.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
     window.setAttribute(Qt.WA_DontShowOnScreen, True)
     process_theme_application(QApplication.instance(), call_persisted_option_resolved("application_theme"))
@@ -827,19 +785,7 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket]) -> QMai
     sidebar_container, tab_list = create_sidebar_container_widget(ALL_TABS, stacked_widget)
     window.sidebar_tab_list = tab_list
     content_layout.addWidget(sidebar_container)
-    right_content_widget = QWidget()
-    right_content_layout = QVBoxLayout(right_content_widget)
-    right_content_layout.setContentsMargins(0, 0, 0, 0)
-    right_content_layout.setSpacing(0)
-    window.launch_block = create_code_block_widget(build_launch_command(DEFAULT_PROFILE))
-    launch_wrapper = QWidget()
-    launch_wrapper_layout = QVBoxLayout(launch_wrapper)
-    launch_wrapper_layout.setContentsMargins(12, HEADER_VERTICAL_MARGIN, 8, 8)
-    launch_wrapper_layout.setSpacing(0)
-    launch_wrapper_layout.addWidget(window.launch_block)
-    right_content_layout.addWidget(launch_wrapper)
-    right_content_layout.addWidget(stacked_widget, 1)
-    content_layout.addWidget(right_content_widget, 1)
+    content_layout.addWidget(stacked_widget, 1)
     main_layout.addLayout(content_layout, 1)
     bottom_bar_widget = QWidget()
     bottom_bar_widget.setProperty("buttonContainer", True)
@@ -884,7 +830,6 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket]) -> QMai
     process_dropped_notice(
         window,
         process_profile_widget_load(window.all_widgets, window.current_profile))
-    process_launch_line_update(window)
     window.initial_setup_complete = True
     window.setAttribute(Qt.WA_DontShowOnScreen, False)
     match QApplication.instance() is None:
@@ -902,10 +847,11 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket]) -> QMai
             QTimer.singleShot(SHOW_DELAY_MS, lambda: process_window_show(window))
         case True:
             pass
-    window.probe_timer = QTimer(window)
-    window.probe_timer.timeout.connect(lambda: process_probe_poll(window))
-    window.probe_timer.start(PREVIEW_POLL_MS)
-    QTimer.singleShot(PREVIEW_START_MS, lambda: process_preview_start(window))
+    match probe_ok:
+        case False:
+            QTimer.singleShot(NOTICE_DELAY_MS, lambda: process_notification_display(window, PROBE_FAILED_ERROR))
+        case True:
+            pass
     window.closeEvent = lambda close_event: process_window_close(window, singleton_socket, close_event)
     return window
 
@@ -920,7 +866,7 @@ def main() -> None:
     singleton_result = call_claim_singleton(SINGLETON_PORT)
     match singleton_result["running"]:
         case True:
-            print("volt-gui is already running.")
+            print("ohm-gui is already running.")
             sys.exit(0)
         case False:
             pass
@@ -928,10 +874,11 @@ def main() -> None:
     call_clean_environment()
     process_initial_platform()
     process_initial_scale()
+    probe_ok = call_run_probe()
     application = QApplication(sys.argv)
     application.setStyle("Fusion")
     application.setQuitOnLastWindowClosed(False)
-    window = create_main_window_widget(singleton_result["socket"])
+    window = create_main_window_widget(singleton_result["socket"], probe_ok)
     process_signal_handlers_setup(window)
     sys.exit(application.exec())
 

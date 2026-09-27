@@ -1,173 +1,117 @@
+from fnmatch import fnmatchcase
+from functools import partial
 from typing import Final
 
-from probe import alpha_one_options
-from probe import alpha_options
-from probe import aniso_options
 from probe import call_read_probe
-from probe import clamp_options
-from probe import frametime_pairs
-from probe import gpu_options
-from probe import image_count_options
-from probe import lod_bias_options
-from probe import mip_options
+from probe import offered_pairs
 from probe import plain_pairs
-from probe import present_options
-from probe import shading_options
 from probe import stepped_values
 
 
-APP_VERSION: Final[str] = "2.4.1"
+APP_VERSION: Final[str] = "0.1.0"
 APP_AUTHOR: Final[str] = "pythonlover02"
 APP_LICENSE: Final[str] = "GPL 3.0 License"
-APP_DESCRIPTION: Final[str] = "My AMD Adrenaline / NVIDIA Settings Linux Alternative"
+APP_DESCRIPTION: Final[str] = "My Linux Kernel Settings Modifier"
 
 DEFAULT_VALUE: Final[str] = "default"
 DEFAULT_PROFILE: Final[str] = "default"
+DEFAULT_STEP: Final[int] = 1
+GLOBAL_INSTANCE: Final[str] = "global"
+SECTION_SEP: Final[str] = "."
+WIDGET_SEP: Final[str] = ":"
+TAG_OPEN: Final[str] = " ("
+TAG_CLOSE: Final[str] = ")"
 
-PROFILE_TABS: Final[tuple] = ("GPU", "Display", "Textures", "Rendering", "Framerate")
-ALL_TABS: Final[tuple] = ("GPU", "Display", "Textures", "Rendering", "Framerate", "Options", "About")
-FRAME_LIMIT_FIRST: Final[int] = 1
-FRAME_LIMIT_LAST: Final[int] = 1000
+TAB_CATEGORIES: Final[dict] = {"CPU": "cpu", "Memory": "memory", "Disk": "disk", "PCIe": "pcie", "Network": "network"}
+PROFILE_TABS: Final[tuple] = tuple(TAB_CATEGORIES)
+ALL_TABS: Final[tuple] = PROFILE_TABS + ("Options", "About")
 SCALE_LOW: Final[float] = 0.8
 SCALE_HIGH: Final[float] = 2.0
 
 
 SETTINGS_DB: Final[dict] = {
-    "GPU": {
-        "device": {
-            "section": "gpu",
-            "label": "Physical Device",
-            "description": "Which GPU the game sees. The layer hides every other device from enumeration, so a game that takes the first one it is offered gets yours. If nothing matches, the full list comes back and a warning is logged.",
-            "options": (DEFAULT_VALUE,),
+    "CPU": {
+        "current_governor": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "current_governor",
+            "label": "Idle Governor",
+            "description": "How deeply a core sleeps when there is nothing to run. A deeper sleep saves more power and takes longer to wake from, and this picks who makes that call. teo guesses from a longer history than menu; ladder just steps down one level at a time.",
+        },
+        "scaling_governor": {
+            "instance": "policy*",
+            "key": "scaling_governor",
+            "label": "Governor",
+            "description": "How this core picks its clock. performance holds the top speed and burns power for it, powersave holds the bottom, and the rest read the load and move between them. schedutil reads the scheduler's own figure, so it reacts fastest. One card per policy: cores that share a clock share a policy, and the kernel decides which.",
+        },
+        "scaling_min_freq": {
+            "instance": "policy*",
+            "key": "scaling_min_freq",
+            "step": 1000,
+            "label": "Minimum Frequency",
+            "description": "The slowest this core may run, in kHz. Raising it cuts the time spent waking up from idle and costs power the whole time. Cannot go above the maximum.",
+        },
+        "scaling_max_freq": {
+            "instance": "policy*",
+            "key": "scaling_max_freq",
+            "step": 1000,
+            "label": "Maximum Frequency",
+            "description": "The fastest this core may run, in kHz. Lowering it caps heat and noise and costs you the top of the clock range. Cannot go below the minimum.",
         },
     },
-    "Display": {
-        "present_mode": {
-            "section": "display",
-            "label": "VSync / Present Mode",
-            "description": "How finished frames reach the screen. immediate turns vsync off, mailbox is low latency vsync, fifo is classic vsync, fifo_relaxed tears only below refresh. Only these four are offered or forced; a mode an extension defines is left wherever the driver reported it. A mode the surface lacks falls back to the game's own choice with a warning.",
-            "options": (DEFAULT_VALUE,),
+    "Memory": {
+        "enabled": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "enabled",
+            "label": "Huge Pages",
+            "description": "Back memory with large pages instead of many small ones. Fewer address lookups, at the cost of stalling while the kernel finds a large page free. always uses them everywhere, madvise only where a program asked for them, never turns them off.",
         },
-        "image_count": {
-            "section": "display",
-            "step": 1,
-            "label": "Swapchain Images",
-            "description": "How many images the swapchain holds, which is the frames in flight control and the closest thing here to an anti-lag setting. More lets the game run further ahead of the GPU, smoothing frame delivery and costing input lag. Fewer holds it closer to the display. The list is what this surface allows.",
-            "options": (DEFAULT_VALUE,),
+        "defrag": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "defrag",
+            "label": "Huge Page Defrag",
+            "description": "What happens when no large page is free. always waits while the kernel makes one, which is where huge pages cost you a stutter. defer hands out small pages now and compacts in the background, never gives up immediately. Only does something where Huge Pages is on.",
         },
-        "composite_alpha": {
-            "section": "display",
-            "label": "Composite Alpha",
-            "description": "How the compositor treats the alpha channel of the finished image. opaque skips blending the window altogether, the cheapest path on Wayland. A value the surface turns down falls back to the game's own choice with a warning.",
-            "options": (DEFAULT_VALUE,),
+        "shmem_enabled": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "shmem_enabled",
+            "label": "Huge Pages For Shared Memory",
+            "description": "The same for shared memory and tmpfs, which is where a game's shader cache and /dev/shm live. within_size only uses a large page where the mapping is big enough to fill it.",
         },
-        "clipped": {
-            "section": "display",
-            "label": "Clipped Presentation",
-            "description": "Whether the driver may discard work on pixels another window covers. on is cheaper and is what almost every game asks for already. off keeps those pixels rendered, which only matters if something reads the presented image back. Core Vulkan, so the list never changes.",
-            "options": (DEFAULT_VALUE, "off", "on"),
+        "hugepages_enabled": {
+            "instance": "hugepages-*",
+            "key": "enabled",
+            "label": "Huge Pages",
+            "description": "Huge pages at this size specifically. inherit follows the setting above it, which is where most sizes should stay: your CPU only has hardware for one or two of these.",
         },
-    },
-    "Framerate": {
-        "frame_limit": {
-            "section": "framerate",
-            "step": 1,
-            "label": "Frame Limit",
-            "description": "Cap the frame rate at present time, shown with the frame budget each rate gives you. Past about 500 the interval is shorter than the kernel wakes reliably, so sleep pacing drifts above the cap and holding the rate needs sliced, precise or spin.",
-            "options": (DEFAULT_VALUE,),
-        },
-        "frame_limit_cadence": {
-            "section": "framerate",
-            "label": "Frame Limit Cadence",
-            "description": "Which rate the limiter paces at. fixed uses your cap and nothing else. smooth paces at the slowest of the last few frames, so the fast frames wait for the slow ones and the cadence comes out even at whatever the machine is holding. dynamic reads the same and rounds it down to a quarter step of your cap, so it sits on a set rate: a 60 cap steps 60, 48, 40, 34, 30. Both trade frames for even spacing, and neither goes faster than your cap. Set fixed if the machine holds the cap, or if you want every frame you can get for the input latency. Only does something when Frame Limit is set.",
-            "options": (DEFAULT_VALUE, "fixed", "smooth", "dynamic"),
-        },
-        "frame_limit_method": {
-            "section": "framerate",
-            "label": "Frame Limit Method",
-            "description": "When the limiter waits. early holds the frame back so presents leave on a fixed cadence. late lets the present through and waits before handing control back, so the game reads input closer to display time, which is what Reflex and Anti-Lag do. reactive waits where early does but measures from the frame just shown, so a slow frame is never chased with a fast one. Only does something when Frame Limit is set.",
-            "options": (DEFAULT_VALUE, "early", "late", "reactive"),
-        },
-        "frame_pacing": {
-            "section": "framerate",
-            "label": "Frame Pacing",
-            "description": "How the limiter waits. sleep hands the whole wait to the kernel. sliced sleeps in short steps and re-checks the clock, correcting for the kernel waking late. precise sleeps most of the interval then busy waits half a millisecond. spin busy waits throughout, the steadiest and the only one that keeps a core awake. Only does something when Frame Limit is set.",
-            "options": (DEFAULT_VALUE, "sleep", "sliced", "precise", "spin"),
+        "hugepages_shmem_enabled": {
+            "instance": "hugepages-*",
+            "key": "shmem_enabled",
+            "label": "Huge Pages For Shared Memory",
+            "description": "Shared memory huge pages at this size specifically. inherit follows the setting above it.",
         },
     },
-    "Textures": {
-        "mag_filter": {
-            "section": "textures",
-            "label": "Magnification Filter",
-            "description": "How a texture is sampled when it is drawn larger than its own size, which is anything close to the camera. nearest gives sharp unfiltered pixels, linear smooths between them. linear is forced only onto a sampler already using linear somewhere; otherwise that sampler is left alone with a line in the log. This is the one filter a still screenshot shows you. Core Vulkan, so the list never changes.",
-            "options": (DEFAULT_VALUE, "nearest", "linear"),
-        },
-        "min_filter": {
-            "section": "textures",
-            "label": "Minification Filter",
-            "description": "How a texture is sampled when it is drawn smaller than its own size, which is most of the screen. nearest takes one texel and shimmers as the camera moves. linear averages and settles, and is where mipmaps and anisotropic filtering do their work. linear is forced only onto a sampler already using linear somewhere; otherwise that sampler is left alone with a line in the log. Core Vulkan, so the list never changes.",
-            "options": (DEFAULT_VALUE, "nearest", "linear"),
-        },
-        "mipmap_mode": {
-            "section": "textures",
-            "label": "Mipmap Mode",
-            "description": "How samplers move between mip levels. nearest cuts hard from one mip to the next, which shows as a band on the ground. linear blends across them, the third linear in trilinear, and is forced only onto a sampler already using linear somewhere. Core Vulkan, so the list never changes. Only affects textures that have mips.",
-            "options": (DEFAULT_VALUE, "nearest", "linear"),
-        },
-        "anisotropy": {
-            "section": "textures",
-            "step": 1,
-            "label": "Anisotropic Filtering",
-            "description": "Sharpen textures viewed at steep angles. Higher values look better at a small cost. The list runs up to what your GPU reports. volt never enables the feature: where the game left it off the setting is ignored and a line is logged. Nearly every game asks for it.",
-            "options": (DEFAULT_VALUE,),
-        },
-        "lod_bias": {
-            "section": "textures",
-            "step": 0.1,
-            "label": "LOD Bias",
-            "description": "Shift mipmap selection. Negative sharpens at the cost of shimmer, positive blurs but renders faster. A negative bias is the nearest volt gets to sharpening. The list runs in steps of 0.1 across the range your GPU reports, up to 4 either way.",
-            "options": (DEFAULT_VALUE,),
-        },
-        "mip_floor": {
-            "section": "textures",
-            "step": 1,
-            "label": "Mip Floor",
-            "description": "The lowest mip level samplers may use, called minimum LOD in Vulkan. Raising it forces smaller mips everywhere, trading detail for speed. The list runs up to the largest image your GPU can address, and a level past the last mip a texture has simply lands on that last mip.",
-            "options": (DEFAULT_VALUE,),
-        },
-        "mip_ceiling": {
-            "section": "textures",
-            "step": 1,
-            "label": "Mip Ceiling",
-            "description": "The highest mip level samplers may use, called maximum LOD in Vulkan. Lowering it keeps distant textures sharper than the game intended. The list matches Mip Floor. A forced bound that would cross the value the other field holds is dropped, with a line in the log.",
-            "options": (DEFAULT_VALUE,),
+    "Disk": {
+        "scheduler": {
+            "instance": "*",
+            "key": "scheduler",
+            "label": "I/O Scheduler",
+            "description": "How reads and writes are ordered before they reach this drive. none sends them straight through, which suits an SSD that reorders on its own. mq-deadline stops any one request waiting forever, bfq shares bandwidth between processes so a background copy cannot starve a game. One card per drive.",
         },
     },
-    "Rendering": {
-        "sample_shading": {
-            "section": "rendering",
-            "step": 0.1,
-            "label": "Sample Shading",
-            "description": "Shade at sample rate inside MSAA render targets to reduce shimmer. The value is the smallest fraction of samples shaded, and off counts as zero. volt never enables the feature: most modern renderers are deferred and never ask, and where the game left it off the setting is ignored and a line is logged.",
-            "options": (DEFAULT_VALUE,),
+    "PCIe": {
+        "aspm_policy": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "policy",
+            "label": "PCIe Power Policy",
+            "description": "How eagerly PCIe links drop into low-power states between transfers. performance keeps them awake, which trims latency on the GPU and NVMe links and costs a little power. powersave and powersupersave sleep them sooner. Some firmware keeps this for itself, and there the write is refused.",
         },
-        "alpha_to_coverage": {
-            "section": "rendering",
-            "label": "Alpha To Coverage",
-            "description": "Turn fragment alpha to coverage off, whatever the game asked for. volt never forces it on: on requires the fragment shader to write alpha at location 0 and volt never reads a shader. Core Vulkan, so the list never changes. Only does something where the game already renders to an MSAA target.",
-            "options": (DEFAULT_VALUE, "off"),
-        },
-        "alpha_to_one": {
-            "section": "rendering",
-            "label": "Alpha To One",
-            "description": "Force fragment alpha to 1 after the shader runs. volt never enables the feature: where the game left it off the setting is ignored and a line is logged. Only does something where the game already renders to an MSAA target.",
-            "options": (DEFAULT_VALUE,),
-        },
-        "depth_clamp": {
-            "section": "rendering",
-            "label": "Depth Clamp",
-            "description": "Keep fragments outside the near and far planes and pin their depth to the plane instead of discarding them. Stops weapon models being sliced open when the camera backs into a wall. The same toggle covers the far plane, where distant geometry flattens onto it instead of disappearing, which can look worse, so try it per game. volt never enables the feature, and most games leave it off, so expect this to do nothing in most of them. Run with VOLT_LOG=info to see which case you are in.",
-            "options": (DEFAULT_VALUE,),
+    },
+    "Network": {
+        "tcp_congestion_control": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "tcp_congestion_control",
+            "label": "TCP Congestion Control",
+            "description": "How a TCP connection backs off when the network gets busy. cubic is the long-standing choice, bbr measures the path and keeps queues short, which helps downloads on a loaded link. Games mostly talk UDP, so this moves launchers and downloads rather than the game itself. The list is what this kernel has loaded.",
         },
     },
 }
@@ -226,30 +170,6 @@ OPTIONS_DB: Final[dict] = {
 }
 
 
-OPTION_BUILDERS: Final[dict] = {
-    "device": gpu_options,
-    "present_mode": present_options,
-    "composite_alpha": alpha_options,
-    "alpha_to_one": alpha_one_options,
-    "depth_clamp": clamp_options,
-}
-
-
-def _frame_limit_options(data: tuple, step: float) -> tuple:
-    return frametime_pairs(stepped_values(FRAME_LIMIT_FIRST, FRAME_LIMIT_LAST, step))
-
-
-STEPPED_BUILDERS: Final[dict] = {
-    "image_count": image_count_options,
-    "anisotropy": aniso_options,
-    "lod_bias": lod_bias_options,
-    "mip_floor": mip_options,
-    "mip_ceiling": mip_options,
-    "sample_shading": shading_options,
-    "frame_limit": _frame_limit_options,
-}
-
-
 def _scale_options(step: float) -> tuple:
     return stepped_values(SCALE_LOW, SCALE_HIGH, step)
 
@@ -271,76 +191,97 @@ def find_settings_for_tab(tab_name: str) -> dict:
     return SETTINGS_DB.get(tab_name, {})
 
 
-def get_setting_label(tab_name: str, setting_key: str) -> str:
-    return SETTINGS_DB[tab_name][setting_key]["label"]
+def find_category_tab(category: str) -> str:
+    return next((tab_name for tab_name, held in TAB_CATEGORIES.items() if held == category), "")
 
 
-def get_setting_description(tab_name: str, setting_key: str) -> str:
-    return SETTINGS_DB[tab_name][setting_key]["description"]
+def split_section(section: str) -> tuple:
+    return tuple(section.partition(SECTION_SEP)[0::2])
 
 
-def _static_options(tab_name: str, setting_key: str) -> tuple:
-    return plain_pairs(SETTINGS_DB[tab_name][setting_key]["options"])
+def build_widget_key(section: str, key: str) -> str:
+    return section + WIDGET_SEP + key
 
 
-def get_setting_step(tab_name: str, setting_key: str) -> float:
-    return SETTINGS_DB[tab_name][setting_key]["step"]
+def split_widget_key(widget_key: str) -> tuple:
+    return tuple(widget_key.partition(WIDGET_SEP)[0::2])
 
 
-def find_setting_options(tab_name: str, setting_key: str, data: dict) -> tuple:
-    match (OPTION_BUILDERS.get(setting_key), STEPPED_BUILDERS.get(setting_key)):
-        case (None, None):
-            return _static_options(tab_name, setting_key)
-        case (None, stepped):
-            return ((DEFAULT_VALUE, DEFAULT_VALUE),) + stepped(
-                data, get_setting_step(tab_name, setting_key))
-        case (builder, _):
-            return ((DEFAULT_VALUE, DEFAULT_VALUE),) + builder(data)
+def build_setting_id(tab_name: str, setting_name: str) -> str:
+    return tab_name + WIDGET_SEP + setting_name
 
 
-def call_setting_options(tab_name: str, setting_key: str) -> tuple:
-    return find_setting_options(tab_name, setting_key, call_read_probe())
+def is_setting_for(setting: dict, instance: str) -> bool:
+    match (setting["instance"] == GLOBAL_INSTANCE, instance == ""):
+        case (True, True):
+            return True
+        case (False, False):
+            return fnmatchcase(instance, setting["instance"])
+        case _:
+            return False
 
 
-def get_setting_section(tab_name: str, setting_key: str) -> str:
-    return SETTINGS_DB[tab_name][setting_key]["section"]
+def find_section_settings(tab_name: str, instance: str) -> tuple:
+    return tuple(
+        setting_name for setting_name, setting in find_settings_for_tab(tab_name).items()
+        if is_setting_for(setting, instance))
 
 
-def build_widget_key(tab_name: str, setting_key: str) -> str:
-    return tab_name + ":" + setting_key
+def find_setting_id(widget_key: str) -> str:
+    section, key = split_widget_key(widget_key)
+    category, instance = split_section(section)
+    tab_name = find_category_tab(category)
+    return next(
+        (build_setting_id(tab_name, setting_name)
+         for setting_name in find_section_settings(tab_name, instance)
+         if SETTINGS_DB[tab_name][setting_name]["key"] == key),
+        "")
+
+
+def build_card_label(label: str, instance: str) -> str:
+    match instance == "":
+        case True:
+            return label
+        case False:
+            return label + TAG_OPEN + instance + TAG_CLOSE
+
+
+def build_setting_options(values: dict, setting: dict) -> tuple:
+    return ((DEFAULT_VALUE, DEFAULT_VALUE),) + tuple(
+        pair for pair in offered_pairs(values, setting["key"], setting.get("step", DEFAULT_STEP))
+        if pair[0] != DEFAULT_VALUE)
+
+
+def build_setting_card(tab_name: str, section: str, values: dict, setting_name: str) -> tuple:
+    setting = SETTINGS_DB[tab_name][setting_name]
+    return (
+        build_widget_key(section, setting["key"]),
+        build_card_label(setting["label"], split_section(section)[1]),
+        setting["description"],
+        build_setting_options(values, setting))
+
+
+def _in_category(category: str, entry: tuple) -> bool:
+    return split_section(entry[0])[0] == category
+
+
+def _is_instance_section(entry: tuple) -> bool:
+    return split_section(entry[0])[1] != ""
+
+
+def find_category_sections(data: tuple, category: str) -> tuple:
+    return tuple(sorted(filter(partial(_in_category, category), data), key=_is_instance_section))
+
+
+def find_cards_for_tab(tab_name: str, data: tuple) -> tuple:
+    return tuple(
+        build_setting_card(tab_name, section, values, setting_name)
+        for section, values in find_category_sections(data, TAB_CATEGORIES.get(tab_name, ""))
+        for setting_name in find_section_settings(tab_name, split_section(section)[1]))
 
 
 def call_cards_for_tab(tab_name: str) -> tuple:
-    return tuple(
-        (build_widget_key(tab_name, setting_key),
-         get_setting_label(tab_name, setting_key),
-         get_setting_description(tab_name, setting_key),
-         call_setting_options(tab_name, setting_key))
-        for setting_key in find_settings_for_tab(tab_name))
-
-
-def _tab_option_sources(tab_name: str, data: dict) -> tuple:
-    return tuple(
-        (build_widget_key(tab_name, setting_key),
-         find_setting_options(tab_name, setting_key, data))
-        for setting_key in find_settings_for_tab(tab_name))
-
-
-def call_option_sources() -> tuple:
-    data = call_read_probe()
-    return tuple(
-        entry
-        for tab_name in PROFILE_TABS
-        for entry in _tab_option_sources(tab_name, data))
-
-
-def find_profile_fields() -> tuple:
-    return tuple(
-        (build_widget_key(tab_name, setting_key),
-         get_setting_section(tab_name, setting_key),
-         setting_key)
-        for tab_name in PROFILE_TABS
-        for setting_key in find_settings_for_tab(tab_name))
+    return find_cards_for_tab(tab_name, call_read_probe())
 
 
 def get_option_label(option_key: str) -> str:
