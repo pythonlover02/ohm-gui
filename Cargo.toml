@@ -1,26 +1,23 @@
 [package]
-name = "volt"
-version = "2.4.1"
+name = "ohm"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.85.1"
 
 [lib]
-name = "volt"
-crate-type = ["cdylib", "rlib"]
-path = "src/volt/lib.rs"
+name = "ohm"
+path = "src/ohm/lib.rs"
 
 [[bin]]
-name = "volt"
-path = "src/volt/volt.rs"
+name = "ohm"
+path = "src/ohm/ohm.rs"
 
 [[bin]]
-name = "volt-probe"
-path = "src/volt-probe/volt-probe.rs"
+name = "ohm-probe"
+path = "src/ohm-probe/ohm-probe.rs"
 
 [dependencies]
 libc = "0.2"
-toml = "1.1.4"
-ash = "=0.38.0"
 
 [profile.release]
 opt-level = 3

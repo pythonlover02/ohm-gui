@@ -15,5 +15,3 @@ target/
 # Build outputs
 bin/
 releases/
-bundles/
-.flatpak-work*
