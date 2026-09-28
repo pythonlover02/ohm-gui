@@ -11,6 +11,10 @@ Kernel files only. ohm writes nothing a kernel subsystem doesn't describe itself
 
 ohm-gui's settings originally lived inside volt-gui. To keep both projects easier to ship and maintain, and each with one objective, they were split: ohm stays a kernel settings control panel, and the Vulkan side lives in [volt-gui](https://github.com/pythonlover02/volt-gui).
 
+![](/images/1.png)
+![](/images/2.png)
+![](/images/3.png)
+
 ## Quick Start
 
 ```
