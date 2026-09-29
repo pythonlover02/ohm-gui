@@ -8,7 +8,7 @@ from probe import plain_pairs
 from probe import stepped_values
 
 
-APP_VERSION: Final[str] = "0.1.0"
+APP_VERSION: Final[str] = "1.0.0"
 APP_AUTHOR: Final[str] = "pythonlover02"
 APP_LICENSE: Final[str] = "GPL 3.0 License"
 APP_DESCRIPTION: Final[str] = "My Linux Kernel Settings Modifier"
