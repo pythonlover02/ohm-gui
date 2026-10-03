@@ -51,20 +51,13 @@ For a system-wide install use `sudo make install` instead. Pick one, never both.
 
 Each setting is a single value in a single file. Several instances of one file are several cards: one per policy, one per page size, one per drive. A card for one instance names it in its title, like `Governor (policy0)`.
 
-| Tab | Section | Setting | File |
-|-----|---------|---------|------|
-| CPU | `[cpu]` | Idle Governor | `/sys/devices/system/cpu/cpuidle/current_governor` |
-| CPU | `[cpu.policyN]` | Governor | `/sys/devices/system/cpu/cpufreq/policyN/scaling_governor` |
-| CPU | `[cpu.policyN]` | Minimum Frequency | `/sys/devices/system/cpu/cpufreq/policyN/scaling_min_freq` |
-| CPU | `[cpu.policyN]` | Maximum Frequency | `/sys/devices/system/cpu/cpufreq/policyN/scaling_max_freq` |
-| Memory | `[memory]` | Huge Pages | `/sys/kernel/mm/transparent_hugepage/enabled` |
-| Memory | `[memory]` | Huge Page Defrag | `/sys/kernel/mm/transparent_hugepage/defrag` |
-| Memory | `[memory]` | Huge Pages For Shared Memory | `/sys/kernel/mm/transparent_hugepage/shmem_enabled` |
-| Memory | `[memory.hugepages-SIZE]` | Huge Pages | `/sys/kernel/mm/transparent_hugepage/hugepages-SIZE/enabled` |
-| Memory | `[memory.hugepages-SIZE]` | Huge Pages For Shared Memory | `/sys/kernel/mm/transparent_hugepage/hugepages-SIZE/shmem_enabled` |
-| Disk | `[disk.DEVICE]` | I/O Scheduler | `/sys/block/DEVICE/queue/scheduler` |
-| PCIe | `[pcie]` | PCIe Power Policy | `/sys/module/pcie_aspm/parameters/policy` |
-| Network | `[network]` | TCP Congestion Control | `/proc/sys/net/ipv4/tcp_congestion_control` |
+| Tab | Section | Count | Covers |
+|-----|---------|------:|--------|
+| CPU | `[cpu]`, `[cpu.policyN]` | 4 | idle governor, governor, clock range |
+| Memory | `[memory]`, `[memory.hugepages-SIZE]` | 5 | huge pages, defrag, shared memory, per page size |
+| Disk | `[disk.DEVICE]` | 1 | I/O scheduler, per drive |
+| PCIe | `[pcie]` | 1 | link power policy |
+| Network | `[network]` | 1 | TCP congestion control |
 
 Every list is read from your kernel, not from a table in ohm-gui. Values are shown and stored exactly as the kernel writes them: kHz stays kHz.
 
