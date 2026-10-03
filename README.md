@@ -259,10 +259,7 @@ A line names the setting and the reason, never text from the profile, so root's 
 
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `PKEXEC_UID` | set by pkexec, the only way ohm learns whose profile to read |
-| `HOME` | where ohm-probe writes `probe.toml` |
+ohm reads no variable of its own. `PKEXEC_UID` is set by pkexec and is the only way ohm learns whose profile to read. `HOME` decides where ohm-gui and ohm-probe keep their files, and ohm itself never reads it.
 
 There's no environment override for the settings themselves. A profile file is the only way to set them.
 
