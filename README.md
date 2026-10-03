@@ -65,6 +65,18 @@ Values are shown and stored exactly as the kernel writes them: kHz stays kHz. A 
 
 Settings are written when you press Apply and put back when ohm-gui closes.
 
+### The probe
+
+ohm-gui runs `ohm-probe` once each time it opens. It runs as you and never writes a kernel file: it lists each root's directory one level deep, never recursively, reads only the files a root names, and writes `~/.config/ohm-gui/probe.toml` with one section per instance. Every card is built from that file.
+
+```
+ohm-probe
+```
+
+It exits 0 on success and 1 where it couldn't write `probe.toml`.
+
+A file that isn't there is a card holding only `default`. So is a file whose list or bounds are missing.
+
 ### CPU
 
 **Governor** how the policy picks its clock. `performance` holds the top, `powersave` the bottom, the rest follow the load. `schedutil` reads the scheduler's own figure and reacts fastest. Which governors exist is the cpufreq driver's answer: intel_pstate in active mode offers two.
@@ -120,12 +132,6 @@ Before writing, ohm saves what each file holds to `/run/ohm/originals.toml`, roo
 Nothing applies at boot: no unit, no sysctl file, no udev rule. `/run` is gone at reboot, and so is anything ohm saved there.
 
 ohm-gui is the PySide6 front end. Apply saves the profile and runs ohm through pkexec, and closing runs `ohm restore`. Nothing else runs as root, no scripts.
-
-### The probe
-
-ohm-probe runs as you when ohm-gui opens and never writes a kernel file. It lists each root's directory one level deep, never recursively, reads only the files a root names, and writes `~/.config/ohm-gui/probe.toml` with one section per instance. Every card is built from that file.
-
-A file that isn't there is a card holding only default. So is a file whose list or bounds are missing. A profile naming an instance or a value this machine doesn't have resets that setting and says which.
 
 ## Requirements
 
