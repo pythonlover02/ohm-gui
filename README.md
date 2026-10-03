@@ -59,9 +59,11 @@ Each setting is a single value in a single file. Several instances of one file a
 | PCIe | `[pcie]` | 1 | link power policy |
 | Network | `[network]` | 1 | TCP congestion control |
 
-Every list is read from your kernel, not from a table in ohm-gui. Values are shown and stored exactly as the kernel writes them: kHz stays kHz.
+Every list is read from your kernel, not from a table in ohm-gui. Governors, schedulers, huge page modes, frequencies, PCIe policies and congestion controls all come from the files themselves or the siblings that list their choices. A file your kernel lacks holds only `default`.
 
-A setting ships only where the kernel states its options or its bounds, and only where the file is a kernel subsystem's interface rather than one driver's.
+Values are shown and stored exactly as the kernel writes them: kHz stays kHz. A profile written on another machine can name a policy, a drive or a value this one lacks. That setting resets to default and ohm-gui says which.
+
+Settings are written when you press Apply and put back when ohm-gui closes.
 
 ### CPU
 
