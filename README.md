@@ -273,23 +273,7 @@ There's no environment override for the settings themselves. A profile file is t
 | `~/.config/ohm-gui/options.toml` | ohm-gui preferences and last active profile |
 | `/run/ohm/originals.toml` | what the files held before ohm, root-only, gone at reboot |
 
-Profiles are plain TOML, one section per instance and one string per file, so you can edit them by hand. Keys are the kernel's own file names:
-
-```
-[cpu]
-current_governor = "default"
-
-[cpu.policy0]
-scaling_governor = "performance"
-scaling_min_freq = "default"
-scaling_max_freq = "4200000"
-
-[memory]
-enabled = "madvise"
-
-[disk.nvme0n1]
-scheduler = "none"
-```
+Profiles are plain TOML, one section per instance and one string per file, so you can edit them by hand or keep them in a dotfiles repo. Keys are the kernel's own file names. `probe.toml` is written by ohm-probe each time ohm-gui opens, so deleting it costs nothing.
 
 ## Profiles, Presets & Options
 
