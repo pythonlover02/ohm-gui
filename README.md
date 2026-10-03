@@ -285,6 +285,8 @@ Profiles are plain TOML, one section per instance and one string per file, so yo
 
 ## What ohm will never do
 
+ohm writes the files a kernel subsystem describes itself, and puts them back. It leaves nothing running behind it. Anything else is out of scope.
+
 - **Overclocking, undervolting, fan curves, power caps.** Use LACT, or CoreCtrl if you want CPU controls too.
 - **A driver's own interface.** A power cap under hwmon exists on one vendor's cards. ohm ships the interface a kernel subsystem owns and leaves the rest to the tools that own it.
 - **Watchdogs, lockdown levels, suspend modes, debug knobs, the clocksource.** Each is a driver's, a security boundary, or a lever whose result you can't see.
