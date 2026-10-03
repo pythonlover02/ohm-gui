@@ -137,10 +137,12 @@ ohm-gui is the PySide6 front end. Apply saves the profile and runs ohm through p
 
 | Component | Requirement |
 |-----------|-------------|
+| Root helper | Linux, `pkexec` from polkit |
 | Build | Rust 1.85.1+ with cargo, GNU make 4.3+ |
 | GUI | Python 3.10+, PySide6 |
-| Root | polkit (`pkexec`) |
 | Container release | `podman` or `docker` |
+
+No architecture-specific code. Anything the kernel, Rust and PySide6 run on builds natively.
 
 ## Installation
 
