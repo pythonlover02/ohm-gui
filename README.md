@@ -203,6 +203,8 @@ make uninstall-user     # ~/.local
 
 Both put back anything ohm applied, then remove the binaries, the desktop entry, the icon and `~/.config/ohm-gui`, plus the polkit action for the system install. Run directly as root there's no `SUDO_USER` to work from, so your config is left alone.
 
+`make clean` removes `build/` and `releases/`.
+
 ## Immutable Systems
 
 On SteamOS, Bazzite, Silverblue and anything with a read-only `/usr`, skip the system install:
