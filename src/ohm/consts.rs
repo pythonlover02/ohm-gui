@@ -12,6 +12,7 @@ pub(crate) const ROOT_KSM: &str = "/sys/kernel/mm/ksm";
 pub(crate) const ROOT_BLOCK: &str = "/sys/block/*/queue";
 pub(crate) const ROOT_ASPM: &str = "/sys/module/pcie_aspm/parameters";
 pub(crate) const ROOT_TCP: &str = "/proc/sys/net/ipv4";
+pub(crate) const ROOT_MPTCP: &str = "/proc/sys/net/mptcp";
 
 pub(crate) const KEY_SCALING_GOVERNOR: &str = "scaling_governor";
 pub(crate) const KEY_SCALING_AVAILABLE_GOVERNORS: &str = "scaling_available_governors";
@@ -29,6 +30,8 @@ pub(crate) const KEY_SCHEDULER: &str = "scheduler";
 pub(crate) const KEY_POLICY: &str = "policy";
 pub(crate) const KEY_TCP_CONGESTION_CONTROL: &str = "tcp_congestion_control";
 pub(crate) const KEY_TCP_AVAILABLE_CONGESTION_CONTROL: &str = "tcp_available_congestion_control";
+pub(crate) const KEY_PATH_MANAGER: &str = "path_manager";
+pub(crate) const KEY_AVAILABLE_PATH_MANAGERS: &str = "available_path_managers";
 
 pub(crate) const PATH_SEP: &str = "/";
 pub(crate) const GLOB: char = '*';
@@ -116,7 +119,7 @@ pub(crate) struct Setting {
     pub(crate) tie: Option<&'static str>,
 }
 
-pub(crate) static SETTINGS: [Setting; 13] = [
+pub(crate) static SETTINGS: [Setting; 14] = [
     Setting {
         category: CATEGORY_CPU,
         instance: Instance::Each,
@@ -219,6 +222,14 @@ pub(crate) static SETTINGS: [Setting; 13] = [
         root: ROOT_TCP,
         key: KEY_TCP_CONGESTION_CONTROL,
         shape: Shape::List(KEY_TCP_AVAILABLE_CONGESTION_CONTROL),
+        tie: None,
+    },
+    Setting {
+        category: CATEGORY_NETWORK,
+        instance: Instance::Global,
+        root: ROOT_MPTCP,
+        key: KEY_PATH_MANAGER,
+        shape: Shape::List(KEY_AVAILABLE_PATH_MANAGERS),
         tie: None,
     },
 ];

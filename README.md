@@ -47,7 +47,7 @@ For a system-wide install use `sudo make install` instead. Pick one, never both.
 
 ## Settings
 
-13 settings across 5 tabs. Every one defaults to `default`, which leaves the file alone. A profile with everything on default writes nothing.
+14 settings across 5 tabs. Every one defaults to `default`, which leaves the file alone. A profile with everything on default writes nothing.
 
 Each setting is a single value in a single file. Several instances of one file are several cards: one per policy, one per page size, one per drive. A card for one instance names it in its title, like `Governor (policy0)`.
 
@@ -57,7 +57,7 @@ Each setting is a single value in a single file. Several instances of one file a
 | Memory | `[memory]`, `[memory.hugepages-SIZE]` | 6 | huge pages, defrag, shared memory, per page size, KSM scan advisor |
 | Disk | `[disk.DEVICE]` | 1 | I/O scheduler, per drive |
 | PCIe | `[pcie]` | 1 | link power policy |
-| Network | `[network]` | 1 | TCP congestion control |
+| Network | `[network]` | 2 | TCP congestion control, MPTCP path manager |
 
 Every list is read from your kernel, not from a table in ohm-gui. Governors, schedulers, huge page modes, frequencies, PCIe policies and congestion controls all come from the files themselves or the siblings that list their choices. A file your kernel lacks holds only `default`.
 
@@ -109,6 +109,8 @@ Per page size, `inherit` follows the setting above it. Most sizes should stay th
 
 **TCP Congestion Control** how a TCP connection backs off when the network gets busy. `cubic` is the long-standing choice, `bbr` keeps queues short and helps downloads on a loaded link. Games mostly talk UDP, so this moves launchers and downloads rather than the game. The list is what this kernel has loaded.
 
+**MPTCP Path Manager** who adds the extra paths a Multipath TCP connection can use. `kernel` uses the kernel's own rules, `userspace` hands that to a daemon like mptcpd. Only touches connections that ask for Multipath TCP, which games and launchers don't.
+
 ## How It Works
 
 ohm is a small root helper started through pkexec under the polkit action `io.github.pythonlover02.ohm.apply`. It runs as root only for the moment it writes, then exits.
@@ -121,7 +123,7 @@ ohm reads `~/.config/ohm-gui/<profile>.toml` when you press Apply and writes the
 | Memory | `/sys/kernel/mm/transparent_hugepage/{enabled,defrag,shmem_enabled}`, `.../hugepages-SIZE/{enabled,shmem_enabled}`, `/sys/kernel/mm/ksm/advisor_mode` |
 | Disk | `/sys/block/DEVICE/queue/scheduler` |
 | PCIe | `/sys/module/pcie_aspm/parameters/policy` |
-| Network | `/proc/sys/net/ipv4/tcp_congestion_control` |
+| Network | `/proc/sys/net/ipv4/tcp_congestion_control`, `/proc/sys/net/mptcp/path_manager` |
 
 A profile never names a path. It names a section and a kernel file name, and ohm maps them to a path through its own table and a live walk of the roots.
 
@@ -281,7 +283,7 @@ Profiles are plain TOML, one section per instance and one string per file, so yo
 
 **Profiles** are TOML files in `~/.config/ohm-gui/`, one per configuration. Create and switch from the GUI or the tray. Switching saves the one you were on and writes nothing to the kernel until you press Apply.
 
-**Presets** fill the active profile with curated values, from Power Saving (every policy on `powersave`) up to Performance Throughput (every policy on `performance`, huge pages `always`, defrag `defer`). A preset writes every value, so anything it doesn't set goes back to default. No preset touches the clock range, the idle governor, the I/O scheduler, the KSM scan advisor, the PCIe policy or TCP congestion control, since those depend on your hardware and your network. A preset naming something your kernel doesn't offer resets that one to default and says which.
+**Presets** fill the active profile with curated values, from Power Saving (every policy on `powersave`) up to Performance Throughput (every policy on `performance`, huge pages `always`, defrag `defer`). A preset writes every value, so anything it doesn't set goes back to default. No preset touches the clock range, the idle governor, the I/O scheduler, the KSM scan advisor, the PCIe policy, TCP congestion control or the MPTCP path manager, since those depend on your hardware and your network. A preset naming something your kernel doesn't offer resets that one to default and says which.
 
 **Options** holds ohm-gui's own preferences, not anything ohm reads: theme, transparency, display backend, scale, start maximised or in tray, tray icon, welcome window. They save as you change them and take effect on restart. With the tray icon on, closing the window keeps your settings applied until you quit from the tray. One instance at a time.
 

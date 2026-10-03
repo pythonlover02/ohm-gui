@@ -119,6 +119,12 @@ SETTINGS_DB: Final[dict] = {
             "label": "TCP Congestion Control",
             "description": "How a TCP connection backs off when the network gets busy. cubic is the long-standing choice, bbr measures the path and keeps queues short, which helps downloads on a loaded link. Games mostly talk UDP, so this moves launchers and downloads rather than the game itself. The list is what this kernel has loaded.",
         },
+        "mptcp_path_manager": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "path_manager",
+            "label": "MPTCP Path Manager",
+            "description": "Who adds the extra paths a Multipath TCP connection can use. kernel adds them from the kernel's own rules, userspace hands that job to a daemon such as mptcpd. Only touches connections that ask for Multipath TCP, which games and launchers do not.",
+        },
     },
 }
 
