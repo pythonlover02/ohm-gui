@@ -277,11 +277,11 @@ Profiles are plain TOML, one section per instance and one string per file, so yo
 
 ## Profiles, Presets & Options
 
-**Profiles** are TOML files in `~/.config/ohm-gui/`, one per configuration. Create and switch from the GUI or the tray. Switching writes nothing to the kernel: press Apply.
+**Profiles** are TOML files in `~/.config/ohm-gui/`, one per configuration. Create and switch from the GUI or the tray. Switching saves the one you were on and writes nothing to the kernel until you press Apply.
 
 **Presets** fill the active profile with curated values, from Power Saving (every policy on `powersave`) up to Performance Throughput (every policy on `performance`, huge pages `always`, defrag `defer`). A preset writes every value, so anything it doesn't set goes back to default. No preset touches the clock range, the idle governor, the I/O scheduler, the PCIe policy or TCP congestion control, since those depend on your hardware and your network. A preset naming something your kernel doesn't offer resets that one to default and says which.
 
-**Options** holds ohm-gui's own preferences: theme, transparency, display backend, scale, start maximised or in tray, tray icon, welcome window. They save as you change them and take effect on restart. With the tray icon on, closing the window keeps your settings applied until you quit from the tray. One instance at a time.
+**Options** holds ohm-gui's own preferences, not anything ohm reads: theme, transparency, display backend, scale, start maximised or in tray, tray icon, welcome window. They save as you change them and take effect on restart. With the tray icon on, closing the window keeps your settings applied until you quit from the tray. One instance at a time.
 
 ## What ohm will never do
 
