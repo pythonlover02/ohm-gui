@@ -102,15 +102,29 @@ Per page size, `inherit` follows the setting above it. Most sizes should stay th
 
 ## How It Works
 
-ohm does one thing: it applies a file. `ohm <profile>` applies a profile, `ohm restore` applies the saved originals. Nothing else runs as root, and ohm-gui calls both through pkexec for you.
+ohm is a small root helper started through pkexec under the polkit action `io.github.pythonlover02.ohm.apply`. It runs as root only for the moment it writes, then exits.
 
-- A profile never names a path. It names a section and a kernel file name, and ohm maps them to a path through its own table and a live walk of the roots.
-- The profile is checked first. Your home comes from `PKEXEC_UID`, never `HOME`. The file is opened without following a symlink and must be a regular file you own.
-- Every value is checked against the kernel at the moment of writing. A value outside the options or bounds the file states isn't written.
-- Before writing, ohm saves what each file holds to `/run/ohm/originals.toml`, root-only. A later apply adds the files it touches for the first time and never overwrites a value already saved. Restore writes them back in reverse order and deletes the file.
-- Every write is read back.
+ohm reads `~/.config/ohm-gui/<profile>.toml` when you press Apply and writes these files:
+
+| Tab | Where ohm writes |
+|-----|------------------|
+| CPU | `/sys/devices/system/cpu/cpuidle/current_governor`, `/sys/devices/system/cpu/cpufreq/policyN/{scaling_governor,scaling_min_freq,scaling_max_freq}` |
+| Memory | `/sys/kernel/mm/transparent_hugepage/{enabled,defrag,shmem_enabled}`, `.../hugepages-SIZE/{enabled,shmem_enabled}` |
+| Disk | `/sys/block/DEVICE/queue/scheduler` |
+| PCIe | `/sys/module/pcie_aspm/parameters/policy` |
+| Network | `/proc/sys/net/ipv4/tcp_congestion_control` |
+
+A profile never names a path. It names a section and a kernel file name, and ohm maps them to a path through its own table and a live walk of the roots.
+
+The profile is checked first. pkexec runs ohm with root's environment, so ohm finds your home from `PKEXEC_UID`, the user who started it, never from `HOME`. The file is opened without following a symlink and must be a regular file you own.
+
+Every value is checked against the kernel at the moment of writing, and every write is read back. A value outside the options or bounds the file states isn't written.
+
+Before writing, ohm saves what each file holds to `/run/ohm/originals.toml`, root-only. A later apply adds the files it touches for the first time and never overwrites a value already saved. Restore writes them back in reverse order and deletes the file.
 
 Nothing applies at boot: no unit, no sysctl file, no udev rule. `/run` is gone at reboot, and so is anything ohm saved there.
+
+ohm-gui is the PySide6 front end. Apply saves the profile and runs ohm through pkexec, and closing runs `ohm restore`. Nothing else runs as root, no scripts.
 
 ### The probe
 
