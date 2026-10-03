@@ -18,7 +18,7 @@ def get_welcome_settings() -> dict:
     return {
         "Welcome": {
             "Welcome to ohm gui": (
-                ("text", "ohm-gui is my Linux Kernel Settings Modifier.\n\nIt sets the CPU governor and clock range, the idle governor, huge pages, the I/O scheduler of each drive, the PCIe link power policy and TCP congestion control."),
+                ("text", "ohm-gui is my Linux Kernel Settings Modifier.\n\nIt sets the CPU governor and clock range, the idle governor, huge pages, the KSM scan advisor, the I/O scheduler of each drive, the PCIe link power policy and TCP congestion control."),
                 ("text", "Settings are written by ohm, a small root helper started through pkexec when you press Apply. Close ohm-gui and every file goes back to what it held."),
             )
         },
@@ -64,7 +64,7 @@ def get_welcome_settings() -> dict:
         },
         "Presets": {
             "Presets": (
-                ("text", "Presets fill the profile you have open with a starting point, arranged as a ladder from least power to most throughput:\n\n- Power Saving: every policy on powersave.\n- Balanced: every policy on schedutil, huge pages where a program asks for them, compaction only where asked.\n- Performance: every policy on performance, huge pages where a program asks for them, and background compaction for everything else.\n- Performance Throughput: the same, with huge pages everywhere and every compaction in the background, trading memory for fewer address lookups.\n\nNo preset touches the clock range, the idle governor, the I/O scheduler, the PCIe policy or TCP congestion control: those depend on your hardware and your network, so they go back to default and the choice stays yours."),
+                ("text", "Presets fill the profile you have open with a starting point, arranged as a ladder from least power to most throughput:\n\n- Power Saving: every policy on powersave.\n- Balanced: every policy on schedutil, huge pages where a program asks for them, compaction only where asked.\n- Performance: every policy on performance, huge pages where a program asks for them, and background compaction for everything else.\n- Performance Throughput: the same, with huge pages everywhere and every compaction in the background, trading memory for fewer address lookups.\n\nNo preset touches the clock range, the idle governor, the I/O scheduler, the KSM scan advisor, the PCIe policy or TCP congestion control: those depend on your hardware and your network, so they go back to default and the choice stays yours."),
                 ("text", "Applying a preset replaces every value in the profile after a confirmation, so anything the preset does not set goes back to default."),
                 ("text", "A preset can name a value your kernel does not offer, schedutil under intel_pstate in active mode for instance. That setting resets to default and ohm-gui says which ones, so the rest of the preset still lands."),
             )

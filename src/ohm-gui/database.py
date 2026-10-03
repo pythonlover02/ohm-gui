@@ -89,6 +89,12 @@ SETTINGS_DB: Final[dict] = {
             "label": "Huge Pages For Shared Memory",
             "description": "Shared memory huge pages at this size specifically. inherit follows the setting above it.",
         },
+        "ksm_advisor_mode": {
+            "instance": GLOBAL_INSTANCE,
+            "key": "advisor_mode",
+            "label": "KSM Scan Advisor",
+            "description": "How KSM paces its search for identical memory pages to merge. none keeps the fixed pace it was given, scan-time speeds it up and slows it down to finish each pass in a set time. Only does something while KSM is running, and ohm does not start it.",
+        },
     },
     "Disk": {
         "scheduler": {

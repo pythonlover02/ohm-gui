@@ -8,6 +8,7 @@ pub(crate) const ROOT_POLICY: &str = "/sys/devices/system/cpu/cpufreq/policy*";
 pub(crate) const ROOT_CPUIDLE: &str = "/sys/devices/system/cpu/cpuidle";
 pub(crate) const ROOT_THP: &str = "/sys/kernel/mm/transparent_hugepage";
 pub(crate) const ROOT_THP_SIZE: &str = "/sys/kernel/mm/transparent_hugepage/hugepages-*";
+pub(crate) const ROOT_KSM: &str = "/sys/kernel/mm/ksm";
 pub(crate) const ROOT_BLOCK: &str = "/sys/block/*/queue";
 pub(crate) const ROOT_ASPM: &str = "/sys/module/pcie_aspm/parameters";
 pub(crate) const ROOT_TCP: &str = "/proc/sys/net/ipv4";
@@ -23,6 +24,7 @@ pub(crate) const KEY_AVAILABLE_GOVERNORS: &str = "available_governors";
 pub(crate) const KEY_ENABLED: &str = "enabled";
 pub(crate) const KEY_DEFRAG: &str = "defrag";
 pub(crate) const KEY_SHMEM_ENABLED: &str = "shmem_enabled";
+pub(crate) const KEY_ADVISOR_MODE: &str = "advisor_mode";
 pub(crate) const KEY_SCHEDULER: &str = "scheduler";
 pub(crate) const KEY_POLICY: &str = "policy";
 pub(crate) const KEY_TCP_CONGESTION_CONTROL: &str = "tcp_congestion_control";
@@ -114,7 +116,7 @@ pub(crate) struct Setting {
     pub(crate) tie: Option<&'static str>,
 }
 
-pub(crate) static SETTINGS: [Setting; 12] = [
+pub(crate) static SETTINGS: [Setting; 13] = [
     Setting {
         category: CATEGORY_CPU,
         instance: Instance::Each,
@@ -184,6 +186,14 @@ pub(crate) static SETTINGS: [Setting; 12] = [
         instance: Instance::Each,
         root: ROOT_THP_SIZE,
         key: KEY_SHMEM_ENABLED,
+        shape: Shape::Bracketed,
+        tie: None,
+    },
+    Setting {
+        category: CATEGORY_MEMORY,
+        instance: Instance::Global,
+        root: ROOT_KSM,
+        key: KEY_ADVISOR_MODE,
         shape: Shape::Bracketed,
         tie: None,
     },

@@ -47,14 +47,14 @@ For a system-wide install use `sudo make install` instead. Pick one, never both.
 
 ## Settings
 
-12 settings across 5 tabs. Every one defaults to `default`, which leaves the file alone. A profile with everything on default writes nothing.
+13 settings across 5 tabs. Every one defaults to `default`, which leaves the file alone. A profile with everything on default writes nothing.
 
 Each setting is a single value in a single file. Several instances of one file are several cards: one per policy, one per page size, one per drive. A card for one instance names it in its title, like `Governor (policy0)`.
 
 | Tab | Section | Count | Covers |
 |-----|---------|------:|--------|
 | CPU | `[cpu]`, `[cpu.policyN]` | 4 | idle governor, governor, clock range |
-| Memory | `[memory]`, `[memory.hugepages-SIZE]` | 5 | huge pages, defrag, shared memory, per page size |
+| Memory | `[memory]`, `[memory.hugepages-SIZE]` | 6 | huge pages, defrag, shared memory, per page size, KSM scan advisor |
 | Disk | `[disk.DEVICE]` | 1 | I/O scheduler, per drive |
 | PCIe | `[pcie]` | 1 | link power policy |
 | Network | `[network]` | 1 | TCP congestion control |
@@ -95,6 +95,8 @@ A file that isn't there is a card holding only `default`. So is a file whose lis
 
 Per page size, `inherit` follows the setting above it. Most sizes should stay there: your CPU only has hardware for one or two.
 
+**KSM Scan Advisor** how KSM paces its search for identical pages to merge. `none` keeps the fixed pace, `scan-time` adjusts it to finish each pass in a set time. Only does something while KSM runs, and ohm doesn't start it.
+
 ### Disk
 
 **I/O Scheduler** how requests are ordered before they reach the drive. `none` suits an SSD that reorders on its own, `mq-deadline` stops a request waiting forever, `bfq` shares bandwidth between processes so a background copy can't starve a game. The list is what this kernel has modules for.
@@ -116,7 +118,7 @@ ohm reads `~/.config/ohm-gui/<profile>.toml` when you press Apply and writes the
 | Tab | Where ohm writes |
 |-----|------------------|
 | CPU | `/sys/devices/system/cpu/cpuidle/current_governor`, `/sys/devices/system/cpu/cpufreq/policyN/{scaling_governor,scaling_min_freq,scaling_max_freq}` |
-| Memory | `/sys/kernel/mm/transparent_hugepage/{enabled,defrag,shmem_enabled}`, `.../hugepages-SIZE/{enabled,shmem_enabled}` |
+| Memory | `/sys/kernel/mm/transparent_hugepage/{enabled,defrag,shmem_enabled}`, `.../hugepages-SIZE/{enabled,shmem_enabled}`, `/sys/kernel/mm/ksm/advisor_mode` |
 | Disk | `/sys/block/DEVICE/queue/scheduler` |
 | PCIe | `/sys/module/pcie_aspm/parameters/policy` |
 | Network | `/proc/sys/net/ipv4/tcp_congestion_control` |
@@ -279,7 +281,7 @@ Profiles are plain TOML, one section per instance and one string per file, so yo
 
 **Profiles** are TOML files in `~/.config/ohm-gui/`, one per configuration. Create and switch from the GUI or the tray. Switching saves the one you were on and writes nothing to the kernel until you press Apply.
 
-**Presets** fill the active profile with curated values, from Power Saving (every policy on `powersave`) up to Performance Throughput (every policy on `performance`, huge pages `always`, defrag `defer`). A preset writes every value, so anything it doesn't set goes back to default. No preset touches the clock range, the idle governor, the I/O scheduler, the PCIe policy or TCP congestion control, since those depend on your hardware and your network. A preset naming something your kernel doesn't offer resets that one to default and says which.
+**Presets** fill the active profile with curated values, from Power Saving (every policy on `powersave`) up to Performance Throughput (every policy on `performance`, huge pages `always`, defrag `defer`). A preset writes every value, so anything it doesn't set goes back to default. No preset touches the clock range, the idle governor, the I/O scheduler, the KSM scan advisor, the PCIe policy or TCP congestion control, since those depend on your hardware and your network. A preset naming something your kernel doesn't offer resets that one to default and says which.
 
 **Options** holds ohm-gui's own preferences, not anything ohm reads: theme, transparency, display backend, scale, start maximised or in tray, tray icon, welcome window. They save as you change them and take effect on restart. With the tray icon on, closing the window keeps your settings applied until you quit from the tray. One instance at a time.
 
