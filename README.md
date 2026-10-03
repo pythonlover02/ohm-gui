@@ -218,6 +218,8 @@ make install-user
 
 Pick one install, not both. Both install targets refuse to run while the other owns `ohm`, so there's never a second copy deciding which one pkexec runs.
 
+The GUI is one self-contained binary, so unpacking a release and double-clicking `build/bin/ohm-gui` opens the editor with nothing installed. Enough to write and copy profiles, not enough to use them: without ohm-probe on your `PATH` every card holds only `default`, and without ohm nothing is written.
+
 ## Building Releases
 
 Both targets produce `releases/ohm-gui-<version>.tar.gz`, a ready-to-install tree. Unpack and `sudo make install` or `make install-user` without compiling.
