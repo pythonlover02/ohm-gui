@@ -239,9 +239,13 @@ pkexec ohm PROFILE      # apply ~/.config/ohm-gui/PROFILE.toml
 pkexec ohm restore      # put back what ohm saved
 ```
 
+ohm-gui runs both for you: the first on Apply, the second when it closes.
+
 Profile names must be non-empty graphic ASCII with no space, no path separator, no `..` and no null byte.
 
-Each setting the profile sets gets one line, `was A, applied B`, or the reason it did not land. Every line is prefixed `[ohm]`:
+Every line is prefixed `[ohm]` and goes to stdout.
+
+Each setting the profile sets gets one line, naming what the file held and what it holds now.
 
 ```
 [ohm] cpu.policy0.scaling_governor: was powersave, applied performance
@@ -249,7 +253,9 @@ Each setting the profile sets gets one line, `was A, applied B`, or the reason i
 [ohm] disk.sda.scheduler: the kernel does not offer that value, the file keeps what it holds
 ```
 
-Both values are read from the kernel, so a value the kernel snapped shows what landed. A line names the setting and the reason, never text from the profile, so root's output can't be turned into a way to read a file you can't. After Apply, ohm-gui shows these lines under Show Details.
+Every setting line names the setting first, then either `was A, applied B` or the reason the setting did not land. Both values are read from the kernel, so a value the kernel snapped shows what landed rather than what the profile says.
+
+A line names the setting and the reason, never text from the profile, so root's output can't be turned into a way to read a file you can't. After Apply, ohm-gui shows these lines under Show Details.
 
 ## Environment Variables
 
