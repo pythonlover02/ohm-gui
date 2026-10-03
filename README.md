@@ -297,4 +297,4 @@ ohm writes the files a kernel subsystem describes itself, and puts them back. It
 
 ## Contributing
 
-Contributions welcome. ohm and ohm-probe are plain Rust with no build scripts, the GUI is PySide6 only. A new setting is decided in `settings.auto` first, in its own words, and the code follows.
+Contributions welcome. ohm and ohm-probe are plain Rust with no build scripts, the GUI is PySide6 only. Keep changes to files a kernel subsystem describes itself. That rule is the point of the project.
