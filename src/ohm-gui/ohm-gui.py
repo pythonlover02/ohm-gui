@@ -457,6 +457,12 @@ def process_window_show(main_window: QMainWindow) -> None:
             main_window.show()
     main_window.activateWindow()
     main_window.raise_()
+    match main_window.welcome_pending:
+        case True:
+            main_window.welcome_pending = False
+            QTimer.singleShot(WELCOME_DELAY_MS, lambda: process_welcome_show(main_window))
+        case False:
+            pass
     return None
 
 
@@ -771,6 +777,7 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket], probe_o
     window.use_system_tray = False
     window.current_profile = DEFAULT_PROFILE
     window.welcome_window = None
+    window.welcome_pending = False
     window.setWindowTitle("ohm-gui")
     window.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
     window.setAttribute(Qt.WA_DontShowOnScreen, True)
@@ -842,10 +849,12 @@ def create_main_window_widget(singleton_socket: Optional[socket.socket], probe_o
             QApplication.instance().setQuitOnLastWindowClosed(not window.use_system_tray)
         case True:
             pass
-    match window.show_welcome and not (window.start_minimized and window.use_system_tray):
-        case True:
+    match (window.show_welcome, window.start_minimized and window.use_system_tray):
+        case (True, False):
             QTimer.singleShot(WELCOME_DELAY_MS, lambda: process_welcome_show(window))
-        case False:
+        case (True, True):
+            window.welcome_pending = True
+        case (False, _):
             pass
     match window.start_minimized and window.use_system_tray:
         case False:
